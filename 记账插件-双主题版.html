@@ -1,0 +1,1114 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>简易记账本</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@400;600;700;800&family=Noto+Serif+SC:wght@500;700&family=Noto+Sans+SC:wght@300;400;500;700&family=JetBrains+Mono:wght@500;700&display=swap');
+
+:root{
+--c-bg:#FFF0F5;
+--c-card:#FFFFFF;
+--c-accent:#E63976;
+--c-accent2:#FF6B9D;
+--c-border:#FFB6C8;
+--c-border2:rgba(255,182,200,.4);
+--c-text:#5C3A4E;
+--c-text2:#9B7384;
+--c-text3:#C9A9B8;
+--c-text4:#C9A9B8;
+--c-income:#7BC67B;
+--c-expense:#FF4D6D;
+--c-income-bg:#E8F8E0;
+--c-expense-bg:#FFE5EC;
+--c-income-light:#B5E8A0;
+--c-expense-light:#FFC9D4;
+--c-shadow:0 4px 16px rgba(255,107,157,.15);
+--c-shadow-lg:0 8px 28px rgba(255,107,157,.2);
+--c-radius:16px;
+--c-radius-sm:12px;
+--c-dot:rgba(255,255,255,.5);
+--font-display:'Fredoka',sans-serif;
+--font-body:'Nunito',sans-serif;
+--font-mono:'Fredoka',sans-serif;
+}
+
+body[data-theme="white"]{
+--c-bg:#F7F7F5;
+--c-card:#FFFFFF;
+--c-accent:#1A1A1A;
+--c-accent2:#1A1A1A;
+--c-border:#EAEAEA;
+--c-border2:#F0F0F0;
+--c-text:#1A1A1A;
+--c-text2:#555555;
+--c-text3:#8A8A8A;
+--c-text4:#C4C4C4;
+--c-income:#2D9B6F;
+--c-expense:#D64545;
+--c-income-bg:#F0F8F4;
+--c-expense-bg:#FBF0F0;
+--c-income-light:#7BCDA0;
+--c-expense-light:#E8A0A0;
+--c-shadow:0 1px 3px rgba(0,0,0,.04);
+--c-shadow-lg:0 4px 20px rgba(0,0,0,.06);
+--c-radius:10px;
+--c-radius-sm:8px;
+--c-dot:transparent;
+--font-display:'Noto Serif SC',serif;
+--font-body:'Noto Sans SC',sans-serif;
+--font-mono:'JetBrains Mono',monospace;
+}
+
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:var(--font-body),-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;color:var(--c-text);max-width:480px;margin:0 auto;min-height:100vh;background:var(--c-bg);transition:background .3s,color .3s}
+body[data-theme="pink"]{background-image:radial-gradient(var(--c-border) 2px,transparent 2px);background-size:24px 24px;background-position:0 0,12px 12px}
+
+.header{position:sticky;top:0;z-index:100;transition:all .3s}
+body[data-theme="pink"] .header{background:var(--c-accent);color:#fff;padding:22px 16px 18px;background-image:radial-gradient(circle,var(--c-dot) 3px,transparent 3px);background-size:20px 20px;box-shadow:0 4px 20px rgba(230,57,118,.25)}
+body[data-theme="white"] .header{background:var(--c-card);color:var(--c-text);padding:28px 20px 22px;border-bottom:1px solid var(--c-border)}
+.header-top{display:flex;align-items:center;justify-content:center;position:relative}
+.header h1{font-family:var(--font-display);font-size:22px;font-weight:600;text-align:center;letter-spacing:.5px}
+body[data-theme="pink"] .header h1{text-shadow:0 2px 4px rgba(0,0,0,.1)}
+body[data-theme="white"] .header h1{font-size:20px;font-weight:700;letter-spacing:2px}
+.theme-toggle{position:absolute;right:0;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.3);border-radius:20px;padding:4px 12px;font-size:11px;font-weight:600;cursor:pointer;color:inherit;font-family:var(--font-body);transition:all .2s;white-space:nowrap}
+body[data-theme="white"] .theme-toggle{background:var(--c-bg);border:1px solid var(--c-border);color:var(--c-text2)}
+.theme-toggle:hover{opacity:.8}
+.theme-toggle:active{transform:translateY(-50%) scale(.95)}
+.summary{text-align:center;margin-top:14px}
+.balance{font-family:var(--font-mono);font-size:30px;font-weight:700;letter-spacing:-.5px}
+body[data-theme="white"] .balance{font-size:32px;letter-spacing:-1px}
+.balance-label{font-size:11px;opacity:.85;margin-top:2px;text-transform:uppercase;letter-spacing:1px}
+body[data-theme="white"] .balance-label{font-size:10px;opacity:1;color:var(--c-text3);letter-spacing:2px}
+.summary-row{display:flex;justify-content:center;gap:32px;margin-top:10px;font-size:13px}
+body[data-theme="white"] .summary-row{gap:36px;font-size:12px}
+.summary-row span{font-weight:700}
+.income-text{color:var(--c-income-light)}
+.expense-text{color:var(--c-expense-light)}
+body[data-theme="white"] .income-text{color:var(--c-income)}
+body[data-theme="white"] .expense-text{color:var(--c-expense)}
+
+.card{background:var(--c-card);border-radius:var(--c-radius);margin:12px;padding:18px;box-shadow:var(--c-shadow);transition:all .3s}
+body[data-theme="pink"] .card{border:1px solid rgba(255,182,200,.3)}
+body[data-theme="white"] .card{border:1px solid var(--c-border);padding:20px}
+.section-title{font-family:var(--font-display);font-size:16px;font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:6px;color:var(--c-accent)}
+body[data-theme="white"] .section-title{font-size:15px;font-weight:700;padding-bottom:10px;border-bottom:1px solid var(--c-border2)}
+.type-tabs{display:flex;gap:10px;margin-bottom:16px}
+body[data-theme="white"] .type-tabs{gap:0;border:1px solid var(--c-border);border-radius:var(--c-radius-sm);overflow:hidden}
+.type-tab{flex:1;padding:9px;text-align:center;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;border:2px solid var(--c-border);background:var(--c-bg);color:var(--c-text2);transition:all .25s}
+body[data-theme="white"] .type-tab{border:none;border-radius:0;font-weight:500;font-size:13px}
+.type-tab.active.expense{border-color:var(--c-expense);color:var(--c-expense);background:var(--c-expense-bg)}
+.type-tab.active.income{border-color:var(--c-income);color:var(--c-income);background:var(--c-income-bg)}
+body[data-theme="white"] .type-tab.active{font-weight:700}
+.input-group{margin-bottom:14px}
+.input-group label{display:block;font-size:12px;color:var(--c-text2);margin-bottom:5px;font-weight:600}
+body[data-theme="white"] .input-group label{font-size:11px;letter-spacing:.5px;text-transform:uppercase}
+.input-group input,.input-group select,.input-group textarea{width:100%;padding:11px 14px;border:1.5px solid var(--c-border);border-radius:12px;font-size:14px;outline:none;transition:all .25s;background:var(--c-bg);color:var(--c-text);font-family:inherit}
+body[data-theme="white"] .input-group input,body[data-theme="white"] .input-group select,body[data-theme="white"] .input-group textarea{border:1px solid var(--c-border);border-radius:var(--c-radius-sm)}
+.input-group input:focus,.input-group select:focus,.input-group textarea:focus{border-color:var(--c-accent2);background:var(--c-card)}
+body[data-theme="pink"] .input-group input:focus,body[data-theme="pink"] .input-group select:focus,body[data-theme="pink"] .input-group textarea:focus{box-shadow:0 0 0 4px rgba(255,107,157,.12)}
+.category-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+body[data-theme="white"] .category-grid{gap:6px}
+.cat-item{text-align:center;padding:9px 4px;border:1.5px solid var(--c-border);border-radius:12px;cursor:pointer;font-size:11px;font-weight:600;transition:all .25s;background:var(--c-bg);color:var(--c-text2)}
+body[data-theme="white"] .cat-item{border:1px solid var(--c-border);border-radius:var(--c-radius-sm);font-weight:500;font-size:11px}
+.cat-item:hover{border-color:var(--c-accent2);color:var(--c-text)}
+body[data-theme="pink"] .cat-item:hover{transform:translateY(-2px)}
+.cat-item.selected{border-color:var(--c-accent2);color:var(--c-accent);background:var(--c-bg);font-weight:700}
+body[data-theme="pink"] .cat-item.selected{box-shadow:0 3px 10px rgba(255,107,157,.2)}
+.cat-icon{font-size:22px;display:block;margin-bottom:2px}
+body[data-theme="white"] .cat-icon{font-size:20px}
+.btn{width:100%;padding:13px;border:none;border-radius:14px;font-size:15px;font-weight:700;font-family:var(--font-display);cursor:pointer;transition:all .2s}
+body[data-theme="white"] .btn{border-radius:var(--c-radius-sm);font-size:14px;font-family:var(--font-body);letter-spacing:1px}
+.btn:active{transform:scale(.97)}
+.btn-primary{color:#fff}
+body[data-theme="pink"] .btn-primary{background:linear-gradient(135deg,var(--c-accent2),var(--c-accent));box-shadow:0 4px 14px rgba(230,57,118,.3)}
+body[data-theme="pink"] .btn-primary:hover{box-shadow:0 6px 20px rgba(230,57,118,.4)}
+body[data-theme="white"] .btn-primary{background:var(--c-accent)}
+body[data-theme="white"] .btn-primary:hover{background:#333}
+.filter-bar{display:flex;gap:8px;margin-bottom:14px;overflow-x:auto;padding-bottom:4px}
+body[data-theme="white"] .filter-bar{gap:6px}
+.filter-btn{padding:7px 16px;border-radius:20px;font-size:12px;font-weight:600;white-space:nowrap;border:1.5px solid var(--c-border);background:var(--c-card);cursor:pointer;color:var(--c-text2);transition:all .25s}
+body[data-theme="white"] .filter-btn{border:1px solid var(--c-border);font-weight:500;border-radius:20px}
+.filter-btn:hover{border-color:var(--c-accent2)}
+.filter-btn.active{background:var(--c-accent2);color:#fff;border-color:var(--c-accent2)}
+body[data-theme="pink"] .filter-btn.active{box-shadow:0 3px 10px rgba(255,107,157,.25)}
+.record-list{max-height:420px;overflow-y:auto}
+.record-list::-webkit-scrollbar{width:5px}
+.record-list::-webkit-scrollbar-thumb{background:var(--c-border);border-radius:10px}
+body[data-theme="white"] .record-list::-webkit-scrollbar{width:3px}
+.record-item{display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--c-border2)}
+body[data-theme="pink"] .record-item{border-bottom:1px dashed rgba(255,182,200,.4)}
+.record-item:last-child{border-bottom:none}
+.record-left{display:flex;align-items:center;gap:10px}
+.record-icon{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;background:var(--c-bg);border:1.5px solid var(--c-border)}
+body[data-theme="white"] .record-icon{width:36px;height:36px;font-size:17px;border:1px solid var(--c-border)}
+.record-info .record-cat{font-size:14px;font-weight:700;color:var(--c-text)}
+.record-info .record-note{font-size:12px;color:var(--c-text3)}
+.record-info .record-date{font-size:11px;color:var(--c-text4)}
+.record-amount{font-size:15px;font-weight:700;font-family:var(--font-mono)}
+body[data-theme="white"] .record-amount{font-size:15px}
+.empty{text-align:center;padding:36px;color:var(--c-text3);font-size:14px}
+.edit-btn{background:none;border:none;color:var(--c-text4);cursor:pointer;font-size:15px;padding:4px 6px;transition:all .2s;border-radius:8px}
+.edit-btn:hover{color:var(--c-accent2);background:var(--c-bg)}
+body[data-theme="white"] .edit-btn:hover{color:var(--c-text)}
+.del-btn{background:none;border:none;color:var(--c-text4);cursor:pointer;font-size:15px;padding:4px 6px;transition:all .2s;border-radius:8px}
+.del-btn:hover{color:var(--c-expense);background:var(--c-expense-bg)}
+.record-actions{display:flex;align-items:center;gap:2px}
+.cancel-edit-btn{background:var(--c-bg);border:1.5px solid var(--c-border);color:var(--c-text2);padding:12px 0;border-radius:14px;font-size:15px;font-weight:600;cursor:pointer;width:100%;margin-top:8px;display:none;transition:all .2s}
+body[data-theme="white"] .cancel-edit-btn{border:1px solid var(--c-border);border-radius:var(--c-radius-sm);font-size:14px;font-weight:500}
+.cancel-edit-btn:hover{background:var(--c-bg)}
+.edit-hint{border-radius:12px;padding:9px 14px;margin-bottom:14px;font-size:13px;font-weight:600;display:none}
+body[data-theme="pink"] .edit-hint{background:linear-gradient(135deg,#FFF3E0,#FFE0CC);border:1.5px solid #FFD6A0;color:#E65100}
+body[data-theme="white"] .edit-hint{background:var(--c-expense-bg);border:1px solid #E8D0D0;color:var(--c-expense)}
+.nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:var(--c-card);display:flex;z-index:100;transition:all .3s}
+body[data-theme="pink"] .nav{border-top:1px solid rgba(255,182,200,.3);box-shadow:0 -4px 20px rgba(255,107,157,.08)}
+body[data-theme="white"] .nav{border-top:1px solid var(--c-border)}
+.nav-item{flex:1;text-align:center;padding:10px 0;cursor:pointer;color:var(--c-text4);font-size:12px;font-weight:600;transition:color .2s}
+body[data-theme="white"] .nav-item{font-size:11px;font-weight:500}
+.nav-item.active{color:var(--c-accent)}
+.nav-icon{font-size:21px;display:block;margin-bottom:2px}
+body[data-theme="white"] .nav-icon{font-size:20px}
+.page{display:none;padding-bottom:76px}
+.page.active{display:block;animation:fadeIn .3s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.month-selector{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.month-nav-btn{color:#fff;border:none;border-radius:12px;width:34px;height:34px;font-size:16px;cursor:pointer;flex-shrink:0;transition:all .2s}
+body[data-theme="pink"] .month-nav-btn{background:var(--c-accent2);box-shadow:0 3px 10px rgba(255,107,157,.2)}
+body[data-theme="pink"] .month-nav-btn:hover{background:var(--c-accent)}
+body[data-theme="white"] .month-nav-btn{background:var(--c-card);color:var(--c-text);border:1px solid var(--c-border);border-radius:var(--c-radius-sm);width:32px;height:32px;font-size:15px}
+body[data-theme="white"] .month-nav-btn:hover{background:var(--c-bg)}
+.month-nav-btn:active{transform:scale(.92)}
+.month-title{font-family:var(--font-display);font-size:16px;font-weight:600;flex:1;text-align:center;color:var(--c-text)}
+body[data-theme="white"] .month-title{font-size:15px;font-weight:700}
+.month-summary{display:flex;gap:8px;margin-bottom:14px}
+body[data-theme="white"] .month-summary{gap:8px}
+.month-summary-item{flex:1;text-align:center;padding:11px 6px;border-radius:14px;font-size:11px;font-weight:600}
+body[data-theme="white"] .month-summary-item{border-radius:var(--c-radius-sm);font-weight:500;padding:12px 6px;border:1px solid var(--c-border)}
+.month-summary-item .ms-val{font-size:16px;font-weight:700;margin-top:3px;font-family:var(--font-mono)}
+body[data-theme="white"] .month-summary-item .ms-val{font-size:15px}
+.ms-expense{color:var(--c-expense)}
+.ms-income{color:var(--c-income)}
+.ms-balance{color:var(--c-accent2)}
+body[data-theme="pink"] .ms-expense{background:linear-gradient(135deg,#FFE5EC,#FFD0DD)}
+body[data-theme="pink"] .ms-income{background:linear-gradient(135deg,#E8F8E0,#D0F0C8)}
+body[data-theme="pink"] .ms-balance{background:linear-gradient(135deg,#FFF0F5,#FFE4EC)}
+body[data-theme="white"] .ms-expense{background:var(--c-expense-bg);border-color:#E8D0D0}
+body[data-theme="white"] .ms-income{background:var(--c-income-bg);border-color:#C0E0D0}
+body[data-theme="white"] .ms-balance{background:var(--c-bg)}
+.year-selector{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.year-nav-btn{color:#fff;border:none;border-radius:12px;width:34px;height:34px;font-size:16px;cursor:pointer;flex-shrink:0;transition:all .2s}
+body[data-theme="pink"] .year-nav-btn{background:var(--c-accent2);box-shadow:0 3px 10px rgba(255,107,157,.2)}
+body[data-theme="pink"] .year-nav-btn:hover{background:var(--c-accent)}
+body[data-theme="white"] .year-nav-btn{background:var(--c-card);color:var(--c-text);border:1px solid var(--c-border);border-radius:var(--c-radius-sm);width:32px;height:32px;font-size:15px}
+body[data-theme="white"] .year-nav-btn:hover{background:var(--c-bg)}
+.year-nav-btn:active{transform:scale(.92)}
+.year-title{font-family:var(--font-display);font-size:18px;font-weight:700;flex:1;text-align:center;color:var(--c-accent)}
+body[data-theme="white"] .year-title{font-size:18px;font-weight:700}
+.month-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+body[data-theme="white"] .month-grid{gap:8px}
+.month-card{background:var(--c-bg);border-radius:14px;padding:13px;cursor:pointer;transition:all .25s;border:2px solid transparent}
+body[data-theme="white"] .month-card{border-radius:var(--c-radius-sm);padding:14px;border:1px solid transparent}
+.month-card:hover{border-color:var(--c-accent2)}
+body[data-theme="pink"] .month-card:hover{transform:translateY(-2px);box-shadow:var(--c-shadow)}
+body[data-theme="white"] .month-card:hover{border-color:var(--c-text4)}
+.month-card.current{border-color:var(--c-accent2);background:var(--c-card)}
+body[data-theme="pink"] .month-card.current{box-shadow:0 3px 12px rgba(255,107,157,.15)}
+.month-card .mc-month{font-size:13px;color:var(--c-text2);margin-bottom:4px;font-weight:600}
+body[data-theme="white"] .month-card .mc-month{font-size:12px;font-weight:500}
+.month-card .mc-expense{font-size:18px;font-weight:700;color:var(--c-expense);font-family:var(--font-mono)}
+body[data-theme="white"] .month-card .mc-expense{font-size:17px}
+.month-card .mc-income{font-size:12px;color:var(--c-income);margin-top:2px;font-weight:600}
+body[data-theme="white"] .month-card .mc-income{font-size:11px}
+.month-card .mc-empty{color:var(--c-text4);font-size:12px}
+.year-total-card{color:#fff;border-radius:16px;padding:18px;margin-bottom:16px;transition:all .3s}
+body[data-theme="pink"] .year-total-card{background:linear-gradient(135deg,var(--c-accent2),var(--c-accent));box-shadow:var(--c-shadow-lg);background-image:radial-gradient(circle,var(--c-dot) 3px,transparent 3px);background-size:18px 18px}
+body[data-theme="white"] .year-total-card{background:var(--c-text);border-radius:var(--c-radius)}
+.year-total-card .yt-label{font-size:12px;opacity:.9;font-weight:600}
+body[data-theme="white"] .year-total-card .yt-label{font-size:11px;opacity:.7;text-transform:uppercase;letter-spacing:1px}
+.year-total-card .yt-val{font-family:var(--font-mono);font-size:28px;font-weight:700;margin:3px 0}
+body[data-theme="white"] .year-total-card .yt-val{font-size:28px}
+.year-total-row{display:flex;gap:16px;font-size:13px;margin-top:8px}
+body[data-theme="white"] .year-total-row{font-size:12px;gap:16px}
+.year-total-row span{font-weight:700}
+.year-stats-title{font-family:var(--font-display);font-size:15px;font-weight:600;margin:18px 0 12px;color:var(--c-accent)}
+body[data-theme="white"] .year-stats-title{font-size:14px}
+.ocr-area{border:2.5px dashed var(--c-border);border-radius:14px;padding:18px;text-align:center;margin-bottom:16px;cursor:pointer;transition:all .25s;position:relative;background:var(--c-bg)}
+body[data-theme="white"] .ocr-area{border:1.5px dashed var(--c-text4);border-radius:var(--c-radius-sm)}
+.ocr-area:hover{border-color:var(--c-accent2);background:var(--c-card)}
+.ocr-area.has-img{padding:0;overflow:hidden;border-style:solid;border-color:var(--c-accent2)}
+body[data-theme="white"] .ocr-area.has-img{border-color:var(--c-border)}
+.ocr-preview{max-width:100%;max-height:200px;border-radius:12px;display:block;margin:0 auto}
+body[data-theme="white"] .ocr-preview{border-radius:var(--c-radius-sm)}
+.ocr-icon{font-size:34px;display:block;margin-bottom:6px}
+body[data-theme="white"] .ocr-icon{font-size:32px}
+.ocr-hint{font-size:12px;color:var(--c-text2);font-weight:600}
+body[data-theme="white"] .ocr-hint{font-size:12px;font-weight:500}
+.ocr-loading{position:absolute;top:0;left:0;right:0;bottom:0;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:12px}
+body[data-theme="pink"] .ocr-loading{background:rgba(255,240,245,.95)}
+body[data-theme="white"] .ocr-loading{background:rgba(255,255,255,.95)}
+.ocr-spinner{width:38px;height:38px;border:3px solid var(--c-border);border-top-color:var(--c-accent2);border-radius:50%;animation:spin .8s linear infinite;margin-bottom:8px}
+body[data-theme="white"] .ocr-spinner{width:34px;height:34px;border:2.5px solid var(--c-border);border-top-color:var(--c-text);border-width:2.5px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.ocr-loading-text{font-size:13px;color:var(--c-accent2);font-weight:600}
+body[data-theme="white"] .ocr-loading-text{font-size:12px;color:var(--c-text2)}
+.ocr-result{background:var(--c-bg);border:1px solid var(--c-border);border-radius:12px;padding:12px;margin-bottom:14px;font-size:13px}
+body[data-theme="pink"] .ocr-result{background:linear-gradient(135deg,var(--c-bg),var(--c-bg))}
+body[data-theme="white"] .ocr-result{border-radius:var(--c-radius-sm);border:1px solid var(--c-border);padding:14px}
+.ocr-result .or-row{display:flex;justify-content:space-between;margin-bottom:4px}
+.ocr-result .or-label{color:var(--c-text2);font-weight:600}
+body[data-theme="white"] .ocr-result .or-label{font-weight:500}
+.ocr-result .or-val{font-weight:700;color:var(--c-text);font-family:var(--font-mono)}
+body[data-theme="white"] .ocr-result .or-val{font-family:var(--font-mono)}
+.ocr-badge{display:inline-block;padding:2px 8px;border-radius:8px;font-size:11px;font-weight:700;margin-left:6px}
+body[data-theme="white"] .ocr-badge{border-radius:6px}
+.ocr-badge.expense{background:var(--c-expense-bg);color:var(--c-expense)}
+.ocr-badge.income{background:var(--c-income-bg);color:var(--c-income)}
+.toast{position:fixed;top:58%;left:50%;transform:translate(-50%,-50%);color:#fff;padding:11px 26px;border-radius:14px;font-size:14px;font-weight:600;z-index:9999;opacity:0;transition:all .3s;pointer-events:none;white-space:nowrap}
+body[data-theme="pink"] .toast{background:var(--c-accent);box-shadow:0 6px 20px rgba(230,57,118,.3)}
+body[data-theme="white"] .toast{background:var(--c-text);border-radius:var(--c-radius-sm);font-size:13px;font-weight:500}
+.toast.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
+.ocr-cancel{position:absolute;top:8px;right:8px;color:#fff;border:none;border-radius:50%;width:28px;height:28px;font-size:14px;cursor:pointer;z-index:5;line-height:28px;text-align:center;transition:background .2s}
+body[data-theme="pink"] .ocr-cancel{background:rgba(230,57,118,.7)}
+body[data-theme="pink"] .ocr-cancel:hover{background:var(--c-expense)}
+body[data-theme="white"] .ocr-cancel{background:rgba(0,0,0,.5);width:26px;height:26px;font-size:13px}
+body[data-theme="white"] .ocr-cancel:hover{background:var(--c-text)}
+.backup-section{text-align:center;padding:4px 0}
+.backup-btns{display:flex;gap:10px;margin-bottom:10px}
+body[data-theme="white"] .backup-btns{gap:8px}
+.backup-btn{flex:1;padding:11px;border:none;border-radius:12px;font-size:13px;font-weight:700;font-family:var(--font-display);cursor:pointer;transition:all .2s}
+body[data-theme="white"] .backup-btn{border-radius:var(--c-radius-sm);font-size:13px;font-family:var(--font-body);font-weight:700}
+.backup-btn:active{transform:scale(.97)}
+.backup-export{color:#fff}
+body[data-theme="pink"] .backup-export{background:linear-gradient(135deg,#FF6B9D,#E63976);box-shadow:0 3px 10px rgba(230,57,118,.25)}
+body[data-theme="white"] .backup-export{background:var(--c-text)}
+.backup-import{color:#fff}
+body[data-theme="pink"] .backup-import{background:linear-gradient(135deg,#FFB6C8,#FF8FAB);box-shadow:0 3px 10px rgba(255,143,171,.2)}
+body[data-theme="white"] .backup-import{background:var(--c-card);color:var(--c-text);border:1px solid var(--c-border)}
+body[data-theme="white"] .backup-import:hover{background:var(--c-bg)}
+.data-warning{font-size:11px;color:var(--c-text3);line-height:1.7;text-align:center;padding:8px 12px;margin-top:6px;background:var(--c-bg);border-radius:10px}
+body[data-theme="pink"] .data-warning{border:1px dashed var(--c-border)}
+body[data-theme="white"] .data-warning{border:1px solid var(--c-border);border-radius:var(--c-radius-sm)}
+.modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.3);z-index:9998;display:none;align-items:center;justify-content:center;backdrop-filter:blur(2px)}
+body[data-theme="pink"] .modal-overlay{background:rgba(92,58,78,.4)}
+.modal-overlay.show{display:flex}
+.modal-box{background:var(--c-card);border-radius:16px;padding:24px 20px;width:85%;max-width:360px;text-align:center;box-shadow:0 10px 40px rgba(0,0,0,.2);animation:modalIn .25s ease}
+body[data-theme="white"] .modal-box{border-radius:var(--c-radius);padding:28px 22px;box-shadow:var(--c-shadow-lg)}
+@keyframes modalIn{from{opacity:0;transform:scale(.9)}to{opacity:1;transform:scale(1)}}
+.modal-title{font-family:var(--font-display);font-size:17px;font-weight:600;color:var(--c-accent);margin-bottom:8px}
+body[data-theme="white"] .modal-title{font-size:16px;font-weight:700}
+.modal-text{font-size:13px;color:var(--c-text2);line-height:1.6;margin-bottom:18px}
+body[data-theme="white"] .modal-text{margin-bottom:20px}
+.modal-text b{color:var(--c-text)}
+.modal-btns{display:flex;gap:10px}
+body[data-theme="white"] .modal-btns{gap:8px}
+.modal-btn{flex:1;padding:11px;border:none;border-radius:12px;font-size:14px;font-weight:700;font-family:var(--font-display);cursor:pointer;transition:all .2s}
+body[data-theme="white"] .modal-btn{border-radius:var(--c-radius-sm);font-family:var(--font-body)}
+.modal-btn:active{transform:scale(.97)}
+.modal-confirm{color:#fff}
+body[data-theme="pink"] .modal-confirm{background:linear-gradient(135deg,#FF6B9D,#E63976)}
+body[data-theme="white"] .modal-confirm{background:var(--c-text)}
+.modal-cancel{background:var(--c-bg);color:var(--c-text2);border:1.5px solid var(--c-border)}
+body[data-theme="white"] .modal-cancel{border:1px solid var(--c-border)}
+</style>
+</head>
+<body data-theme="pink">
+
+<div class="header">
+<div class="header-top">
+<h1>简易记账本</h1>
+<button class="theme-toggle" onclick="toggleTheme()">⚪ 白色</button>
+</div>
+<div class="summary">
+<div class="balance" id="totalBalance">¥0.00</div>
+<div class="balance-label">本月结余</div>
+<div class="summary-row">
+<span class="income-text" id="totalIncome">收入 ¥0.00</span>
+<span class="expense-text" id="totalExpense">支出 ¥0.00</span>
+</div>
+</div>
+</div>
+
+<!-- 记账页面 -->
+<div class="page active" id="pageAdd">
+<div class="card">
+<div class="section-title" id="addSectionTitle">添加账目</div>
+<div class="edit-hint" id="editHint">正在编辑记录，修改后点击「保存修改」</div>
+<input type="file" id="billImageInput" accept="image/*" style="display:none" onchange="handleImageUpload(this)">
+<div class="ocr-area" id="ocrArea" onclick="document.getElementById('billImageInput').click()">
+<div id="ocrPlaceholder">
+<span class="ocr-icon">📷</span>
+<span class="ocr-hint">点击上传账单截图，自动识别金额、日期、收支类型</span>
+</div>
+<div id="ocrLoading" class="ocr-loading" style="display:none">
+<div class="ocr-spinner"></div>
+<div class="ocr-loading-text">正在识别账单内容...</div>
+</div>
+</div>
+<div id="ocrResult" style="display:none"></div>
+<div class="type-tabs">
+<div class="type-tab expense active" data-type="expense">支出</div>
+<div class="type-tab income" data-type="income">收入</div>
+</div>
+<div class="input-group">
+<label>金额</label>
+<input type="number" id="amount" placeholder="请输入金额" step="0.01">
+</div>
+<div class="input-group">
+<label>分类</label>
+<div class="category-grid" id="categoryGrid"></div>
+</div>
+<div class="input-group">
+<label>日期</label>
+<input type="date" id="date">
+</div>
+<div class="input-group">
+<label>备注</label>
+<input type="text" id="note" placeholder="选填">
+</div>
+<button class="btn btn-primary" id="submitBtn" onclick="addRecord()">记一笔</button>
+<button class="cancel-edit-btn" id="cancelEditBtn" onclick="cancelEdit()">取消编辑</button>
+</div>
+</div>
+
+<!-- 明细页面 -->
+<div class="page" id="pageList">
+<div class="card">
+<div class="section-title">📋 账单明细</div>
+<div class="month-selector">
+<button class="month-nav-btn" onclick="changeViewMonth(-1)">‹</button>
+<div class="month-title" id="viewMonthTitle">2026年8月</div>
+<button class="month-nav-btn" onclick="changeViewMonth(1)">›</button>
+</div>
+<div class="month-summary">
+<div class="month-summary-item ms-expense"><div>支出</div><div class="ms-val" id="viewMonthExpense">¥0.00</div></div>
+<div class="month-summary-item ms-income"><div>收入</div><div class="ms-val" id="viewMonthIncome">¥0.00</div></div>
+<div class="month-summary-item ms-balance"><div>结余</div><div class="ms-val" id="viewMonthBalance">¥0.00</div></div>
+</div>
+<div class="filter-bar" id="filterBar">
+<div class="filter-btn active" data-filter="all">全部</div>
+<div class="filter-btn" data-filter="expense">仅支出</div>
+<div class="filter-btn" data-filter="income">仅收入</div>
+</div>
+<div class="record-list" id="recordList"></div>
+</div>
+</div>
+
+<!-- 统计页面 -->
+<div class="page" id="pageStats">
+<div class="card">
+<div class="year-selector">
+<button class="year-nav-btn" onclick="changeViewYear(-1)">‹</button>
+<div class="year-title" id="viewYearTitle">2026年</div>
+<button class="year-nav-btn" onclick="changeViewYear(1)">›</button>
+</div>
+<div class="year-total-card">
+<div class="yt-label">年度总支出</div>
+<div class="yt-val" id="yearTotalExpense">¥0.00</div>
+<div class="year-total-row">
+<span style="color:var(--c-income-light)">收入 ¥<span id="yearTotalIncome">0.00</span></span>
+<span style="color:var(--c-expense-light)">月均支出 ¥<span id="yearAvgExpense">0.00</span></span>
+</div>
+</div>
+<div class="year-stats-title">月度支出明细</div>
+<div class="month-grid" id="yearMonthGrid"></div>
+</div>
+<div class="card">
+<div class="section-title">📊 本月分类概览</div>
+<div id="statsContent"></div>
+</div>
+<div class="card">
+<div class="section-title">💾 数据备份与恢复</div>
+<div class="backup-section">
+<div class="backup-btns">
+<button class="backup-btn backup-export" onclick="exportData()">导出备份</button>
+<button class="backup-btn backup-import" onclick="document.getElementById('importFileInput').click()">导入恢复</button>
+</div>
+<input type="file" id="importFileInput" accept=".json" style="display:none" onchange="handleImportFile(this)">
+<div class="data-warning">⚠️ 无痕模式打开不会保存记账记录，清理浏览器缓存会丢失数据，请定期备份</div>
+</div>
+</div>
+</div>
+<div class="modal-overlay" id="confirmModal">
+<div class="modal-box">
+<div class="modal-title" id="modalTitle">确认导入</div>
+<div class="modal-text" id="modalText"></div>
+<div class="modal-btns">
+<button class="modal-btn modal-cancel" onclick="closeModal()">取消</button>
+<button class="modal-btn modal-confirm" id="modalConfirmBtn">确认</button>
+</div>
+</div>
+</div>
+
+<div class="nav">
+<div class="nav-item active" onclick="switchPage('pageAdd',this)">
+<span class="nav-icon">✏️</span>记账
+</div>
+<div class="nav-item" onclick="switchPage('pageList',this)">
+<span class="nav-icon">📋</span>明细
+</div>
+<div class="nav-item" onclick="switchPage('pageStats',this)">
+<span class="nav-icon">📊</span>统计
+</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script>
+var STORAGE_KEY = 'bookkeeping_records';
+var THEME_KEY = 'bookkeeping_theme';
+var currentType = 'expense';
+var currentCategory = '';
+var currentFilter = 'all';
+var viewMonth = new Date().getMonth();
+var viewYear = new Date().getFullYear();
+var editingId = null;
+
+function getTheme(){return localStorage.getItem(THEME_KEY)||'pink';}
+function setTheme(t){
+localStorage.setItem(THEME_KEY,t);
+document.body.setAttribute('data-theme',t);
+var btn=document.querySelector('.theme-toggle');
+if(btn){btn.textContent=t==='pink'?'⚪ 白色':'🌸 粉色';}
+}
+function toggleTheme(){
+var t=document.body.getAttribute('data-theme')==='pink'?'white':'pink';
+setTheme(t);
+showToast(t==='pink'?'已切换粉色波点风格':'已切换白色简约风格');
+}
+setTheme(getTheme());
+
+var categories = {
+expense: [
+{key:'food',icon:'🍔',name:'餐饮'},
+{key:'transport',icon:'🚌',name:'交通'},
+{key:'shopping',icon:'🛒',name:'购物'},
+{key:'daily',icon:'🏠',name:'日用'},
+{key:'fun',icon:'🎮',name:'娱乐'},
+{key:'medical',icon:'💊',name:'医疗'},
+{key:'edu',icon:'📚',name:'教育'},
+{key:'other_e',icon:'📝',name:'其他'}
+],
+income: [
+{key:'salary',icon:'💰',name:'工资'},
+{key:'bonus',icon:'🎁',name:'奖金'},
+{key:'invest',icon:'📈',name:'理财'},
+{key:'redpacket',icon:'🧧',name:'红包'},
+{key:'parttime',icon:'🛠️',name:'兼职'},
+{key:'refund',icon:'💳',name:'退款'},
+{key:'other_i',icon:'📝',name:'其他'}
+]
+};
+
+var catNameMap = {};
+categories.expense.forEach(function(c){catNameMap[c.key]=[c.icon,c.name];});
+categories.income.forEach(function(c){catNameMap[c.key]=[c.icon,c.name];});
+
+function getRecords(){
+try{return JSON.parse(localStorage.getItem(STORAGE_KEY))||[];}
+catch(e){return[];}
+}
+function saveRecords(r){localStorage.setItem(STORAGE_KEY,JSON.stringify(r));}
+
+function renderCategories(){
+var list = categories[currentType];
+var html = list.map(function(c){
+return '<div class="cat-item" data-cat="'+c.key+'" onclick="selectCategory(this)"><span class="cat-icon">'+c.icon+'</span>'+c.name+'</div>';
+}).join('');
+document.getElementById('categoryGrid').innerHTML = html;
+}
+
+function selectCategory(el){
+var items = document.querySelectorAll('.cat-item');
+for(var i=0;i<items.length;i++){items[i].classList.remove('selected');}
+el.classList.add('selected');
+currentCategory = el.dataset.cat;
+}
+
+document.querySelectorAll('.type-tab').forEach(function(tab){
+tab.addEventListener('click',function(){
+document.querySelectorAll('.type-tab').forEach(function(t){t.classList.remove('active');});
+this.classList.add('active');
+currentType = this.dataset.type;
+currentCategory = '';
+renderCategories();
+});
+});
+
+document.querySelectorAll('.filter-btn').forEach(function(btn){
+btn.addEventListener('click',function(){
+document.querySelectorAll('.filter-btn').forEach(function(b){b.classList.remove('active');});
+this.classList.add('active');
+currentFilter = this.dataset.filter;
+renderRecordList();
+});
+});
+
+function addRecord(){
+var amount = parseFloat(document.getElementById('amount').value);
+if(!amount||amount<=0){showToast('请输入有效金额');return;}
+if(!currentCategory){showToast('请选择分类');return;}
+var date = document.getElementById('date').value || getTodayStr();
+var note = document.getElementById('note').value || '';
+var records = getRecords();
+var isEditing = editingId !== null;
+if(isEditing){
+var idx = records.findIndex(function(r){return r.id===editingId;});
+if(idx>=0){
+records[idx].type=currentType;
+records[idx].amount=amount;
+records[idx].category=currentCategory;
+records[idx].date=date;
+records[idx].note=note;
+}
+}else{
+records.push({id:Date.now(),type:currentType,amount:amount,category:currentCategory,date:date,note:note});
+}
+saveRecords(records);
+exitEditMode();
+document.getElementById('amount').value='';
+document.getElementById('note').value='';
+document.getElementById('date').value=getTodayStr();
+currentType='expense';
+currentCategory='';
+document.querySelectorAll('.type-tab').forEach(function(t){t.classList.remove('active');if(t.dataset.type==='expense')t.classList.add('active');});
+renderCategories();
+var items=document.querySelectorAll('.cat-item');
+for(var i=0;i<items.length;i++){items[i].classList.remove('selected');}
+resetOcrArea();
+updateSummary();
+renderRecordList();
+renderYearStats();
+renderStats();
+showToast(isEditing?'修改成功':'记录成功');
+}
+
+function exitEditMode(){
+editingId=null;
+document.getElementById('addSectionTitle').textContent='添加账目';
+document.getElementById('submitBtn').textContent='记一笔';
+document.getElementById('cancelEditBtn').style.display='none';
+document.getElementById('editHint').style.display='none';
+document.getElementById('ocrArea').style.display='block';
+}
+
+function editRecord(id){
+var records=getRecords();
+var record=records.find(function(r){return r.id===id;});
+if(!record)return;
+editingId=id;
+switchPage('pageAdd',document.querySelector('.nav-item:nth-child(1)'));
+document.getElementById('amount').value=record.amount;
+document.getElementById('date').value=record.date;
+document.getElementById('note').value=record.note||'';
+currentType=record.type;
+currentCategory=record.category;
+document.querySelectorAll('.type-tab').forEach(function(t){t.classList.remove('active');if(t.dataset.type===record.type)t.classList.add('active');});
+renderCategories();
+var items=document.querySelectorAll('.cat-item');
+for(var i=0;i<items.length;i++){
+if(items[i].dataset.cat===record.category){items[i].classList.add('selected');break;}
+}
+document.getElementById('addSectionTitle').textContent='编辑记录';
+document.getElementById('submitBtn').textContent='保存修改';
+document.getElementById('cancelEditBtn').style.display='block';
+document.getElementById('editHint').style.display='block';
+document.getElementById('ocrArea').style.display='none';
+document.getElementById('ocrResult').style.display='none';
+window.scrollTo(0,0);
+}
+
+function cancelEdit(){
+exitEditMode();
+document.getElementById('amount').value='';
+document.getElementById('note').value='';
+document.getElementById('date').value=getTodayStr();
+currentType='expense';
+currentCategory='';
+document.querySelectorAll('.type-tab').forEach(function(t){t.classList.remove('active');if(t.dataset.type==='expense')t.classList.add('active');});
+renderCategories();
+var items=document.querySelectorAll('.cat-item');
+for(var i=0;i<items.length;i++){items[i].classList.remove('selected');}
+resetOcrArea();
+}
+
+function showToast(msg){
+var old=document.querySelector('.toast');
+if(old)old.remove();
+var t=document.createElement('div');
+t.className='toast';
+t.textContent=msg;
+document.body.appendChild(t);
+setTimeout(function(){t.classList.add('show');},10);
+setTimeout(function(){t.classList.remove('show');setTimeout(function(){if(t.parentNode)t.remove();},300);},1500);
+}
+
+function resetOcrArea(){
+var area=document.getElementById('ocrArea');
+area.classList.remove('has-img');
+area.innerHTML='<div id="ocrPlaceholder"><span class="ocr-icon">📷</span><span class="ocr-hint">点击上传账单截图，自动识别金额、日期、收支类型</span></div><div id="ocrLoading" class="ocr-loading" style="display:none"><div class="ocr-spinner"></div><div class="ocr-loading-text">正在识别账单内容...</div></div>';
+area.onclick=function(){document.getElementById('billImageInput').click();};
+var resultEl=document.getElementById('ocrResult');
+resultEl.innerHTML='';
+resultEl.style.display='none';
+document.getElementById('billImageInput').value='';
+}
+
+function deleteRecord(id){
+var records = getRecords().filter(function(r){return r.id!==id;});
+saveRecords(records);
+updateSummary();
+renderRecordList();
+renderYearStats();
+renderStats();
+}
+
+function getTodayStr(){
+var d=new Date();
+return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+}
+function pad(n){return n<10?'0'+n:''+n;}
+
+function filterRecords(records,filter){
+var monthStr=pad(viewMonth+1);
+var prefix=viewYear+'-'+monthStr;
+var filtered=records.filter(function(r){return r.date.indexOf(prefix)===0;});
+if(filter==='expense')return filtered.filter(function(r){return r.type==='expense';});
+if(filter==='income')return filtered.filter(function(r){return r.type==='income';});
+return filtered;
+}
+
+function changeViewMonth(delta){
+viewMonth+=delta;
+if(viewMonth>11){viewMonth=0;viewYear++;}
+if(viewMonth<0){viewMonth=11;viewYear--;}
+renderRecordList();
+}
+
+function changeViewYear(delta){
+viewYear+=delta;
+renderYearStats();
+}
+
+function getMonthName(m){return ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'][m];}
+
+function renderRecordList(){
+document.getElementById('viewMonthTitle').textContent=viewYear+'年'+(viewMonth+1)+'月';
+var allRecords=getRecords();
+var monthRecords=filterRecords(allRecords,currentFilter).sort(function(a,b){return b.date.localeCompare(a.date)||b.id-a.id;});
+var income=0,expense=0;
+filterRecords(allRecords,'all').forEach(function(r){
+if(r.type==='income')income+=r.amount;else expense+=r.amount;
+});
+document.getElementById('viewMonthExpense').textContent='¥'+expense.toFixed(2);
+document.getElementById('viewMonthIncome').textContent='¥'+income.toFixed(2);
+document.getElementById('viewMonthBalance').textContent='¥'+(income-expense).toFixed(2);
+var listEl=document.getElementById('recordList');
+if(monthRecords.length===0){listEl.innerHTML='<div class="empty">该月份暂无记录</div>';return;}
+var lastDate='';
+listEl.innerHTML = monthRecords.map(function(r){
+var ci=catNameMap[r.category]||['📝','其他'];
+var sign=r.type==='income'?'+':'-';
+var color=r.type==='income'?'var(--c-income)':'var(--c-expense)';
+var dateHeader='';
+if(r.date!==lastDate){lastDate=r.date;dateHeader='<div style="font-size:12px;color:var(--c-text3);font-weight:600;margin:10px 0 4px;padding-bottom:2px;border-bottom:1px solid var(--c-border2)">'+r.date+'</div>';}
+return dateHeader+'<div class="record-item"><div class="record-left"><div class="record-icon">'+ci[0]+'</div><div class="record-info"><div class="record-cat">'+ci[1]+'</div>'+(r.note?'<div class="record-note">'+escapeHtml(r.note)+'</div>':'')+'</div></div><div class="record-amount" style="color:'+color+'">'+sign+'¥'+r.amount.toFixed(2)+'</div><div class="record-actions"><button class="edit-btn" onclick="editRecord('+r.id+')">✎</button><button class="del-btn" onclick="deleteRecord('+r.id+')">🗑</button></div></div>';
+}).join('');
+}
+
+function escapeHtml(s){return s.replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+
+function updateSummary(){
+var records=getRecords();
+var now=new Date();
+var monthStart=now.getFullYear()+'-'+pad(now.getMonth()+1)+'-01';
+var monthRecords=records.filter(function(r){return r.date>=monthStart;});
+var income=0,expense=0;
+monthRecords.forEach(function(r){
+if(r.type==='income')income+=r.amount;else expense+=r.amount;
+});
+document.getElementById('totalBalance').textContent='¥'+(income-expense).toFixed(2);
+document.getElementById('totalIncome').textContent='收入 ¥'+income.toFixed(2);
+document.getElementById('totalExpense').textContent='支出 ¥'+expense.toFixed(2);
+}
+
+function renderStats(){
+var records=getRecords();
+var now=new Date();
+var monthStart=now.getFullYear()+'-'+pad(now.getMonth()+1)+'-01';
+var monthRecords=records.filter(function(r){return r.date>=monthStart;});
+var income=0,expense=0;
+var catStats={};
+monthRecords.forEach(function(r){
+if(r.type==='income')income+=r.amount;else{
+expense+=r.amount;
+catStats[r.category]=(catStats[r.category]||0)+r.amount;
+}
+});
+var html='<div style="display:flex;gap:10px;margin-bottom:16px">';
+html+='<div style="flex:1;text-align:center;background:var(--c-income-bg);padding:12px;border-radius:8px"><div style="font-size:12px;color:var(--c-text2)">收入</div><div style="font-size:18px;font-weight:600;color:var(--c-income);font-family:var(--font-mono)">¥'+income.toFixed(2)+'</div></div>';
+html+='<div style="flex:1;text-align:center;background:var(--c-expense-bg);padding:12px;border-radius:8px"><div style="font-size:12px;color:var(--c-text2)">支出</div><div style="font-size:18px;font-weight:600;color:var(--c-expense);font-family:var(--font-mono)">¥'+expense.toFixed(2)+'</div></div>';
+html+='</div>';
+html+='<div style="font-size:13px;font-weight:600;margin-bottom:10px;color:var(--c-text2)">支出分类</div>';
+var sorted=Object.keys(catStats).sort(function(a,b){return catStats[b]-catStats[a];});
+if(sorted.length===0){html+='<div class="empty">暂无支出记录</div>';}else{
+sorted.forEach(function(key){
+var ci=catNameMap[key]||['📝','其他'];
+var pct=expense>0?(catStats[key]/expense*100).toFixed(1):0;
+html+='<div style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px"><span>'+ci[0]+' '+ci[1]+'</span><span style="font-family:var(--font-mono)">¥'+catStats[key].toFixed(2)+' ('+pct+'%)</span></div><div style="background:var(--c-border2);border-radius:4px;height:6px"><div style="background:var(--c-accent);height:6px;border-radius:4px;width:'+pct+'%"></div></div></div>';
+});
+}
+html+='<div style="margin-top:16px;padding:12px;background:var(--c-bg);border-radius:8px;font-size:12px;color:var(--c-text3);text-align:center">记录总数：'+monthRecords.length+'笔</div>';
+document.getElementById('statsContent').innerHTML=html;
+}
+
+function switchPage(pageId,el){
+document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
+document.getElementById(pageId).classList.add('active');
+document.querySelectorAll('.nav-item').forEach(function(n){n.classList.remove('active');});
+el.classList.add('active');
+if(pageId==='pageList')renderRecordList();
+if(pageId==='pageStats'){renderYearStats();renderStats();}
+}
+
+function renderYearStats(){
+document.getElementById('viewYearTitle').textContent=viewYear+'年';
+var records=getRecords().filter(function(r){return r.date.indexOf(viewYear+'-')===0;});
+var totalIncome=0,totalExpense=0;
+var monthData=[];
+for(var m=0;m<12;m++){
+var mprefix=viewYear+'-'+pad(m+1);
+var mRecs=records.filter(function(r){return r.date.indexOf(mprefix)===0;});
+var mi=0,me=0;
+mRecs.forEach(function(r){if(r.type==='income')mi+=r.amount;else me+=r.amount;});
+monthData.push({month:m,income:mi,expense:me,count:mRecs.length});
+totalIncome+=mi;totalExpense+=me;
+}
+var now=new Date();
+document.getElementById('yearTotalExpense').textContent='¥'+totalExpense.toFixed(2);
+document.getElementById('yearTotalIncome').textContent=totalIncome.toFixed(2);
+document.getElementById('yearAvgExpense').textContent=(totalExpense/(now.getFullYear()===viewYear?now.getMonth()+1:12)).toFixed(2);
+var hasMonths=monthData.some(function(d){return d.count>0;});
+if(!hasMonths){
+document.getElementById('yearMonthGrid').innerHTML='<div class="empty" style="grid-column:span 2">该年份暂无记录</div>';
+return;
+}
+document.getElementById('yearMonthGrid').innerHTML=monthData.map(function(d){
+var isCurrent=(now.getFullYear()===viewYear&&now.getMonth()===d.month);
+var cls='month-card'+(isCurrent?' current':'');
+if(d.count===0){return '<div class="'+cls+'"><div class="mc-month">'+getMonthName(d.month)+'</div><div class="mc-empty">无记录</div></div>';}
+return '<div class="'+cls+'" onclick="jumpToMonth('+d.month+')"><div class="mc-month">'+getMonthName(d.month)+'</div><div class="mc-expense">¥'+d.expense.toFixed(2)+'</div><div class="mc-income">收入 ¥'+d.income.toFixed(2)+'</div></div>';
+}).join('');
+}
+
+function jumpToMonth(m){
+viewMonth=m;
+switchPage('pageList',document.querySelector('.nav-item:nth-child(2)'));
+}
+
+function handleImageUpload(input){
+var file=input.files[0];
+if(!file)return;
+if(typeof Tesseract==='undefined'){showToast('OCR库加载中，请稍后再试');return;}
+var reader=new FileReader();
+reader.onload=function(e){
+var imgDataUrl=e.target.result;
+var area=document.getElementById('ocrArea');
+area.classList.add('has-img');
+area.innerHTML='<img src="'+imgDataUrl+'" class="ocr-preview"><button class="ocr-cancel" onclick="event.stopPropagation();resetOcrArea()">✕</button><div class="ocr-loading" style="display:flex"><div class="ocr-spinner"></div><div class="ocr-loading-text">正在识别账单内容...</div></div>';
+area.onclick=null;
+setTimeout(function(){runOcr(imgDataUrl);},100);
+};
+reader.readAsDataURL(file);
+}
+
+function preprocessImage(imgDataUrl,callback){
+var img=new Image();
+img.onload=function(){
+var canvas=document.createElement('canvas');
+var maxW=1600;
+var scale=img.width>maxW?maxW/img.width:1;
+canvas.width=Math.round(img.width*scale);
+canvas.height=Math.round(img.height*scale);
+var ctx=canvas.getContext('2d');
+ctx.drawImage(img,0,0,canvas.width,canvas.height);
+try{
+var imageData=ctx.getImageData(0,0,canvas.width,canvas.height);
+var data=imageData.data;
+var totalBrightness=0;
+var pixelCount=data.length/4;
+for(var i=0;i<data.length;i+=4){
+totalBrightness+=data[i]*0.299+data[i+1]*0.587+data[i+2]*0.114;
+}
+var avgBrightness=totalBrightness/pixelCount;
+if(avgBrightness<128){
+for(var i=0;i<data.length;i+=4){
+data[i]=255-data[i];
+data[i+1]=255-data[i+1];
+data[i+2]=255-data[i+2];
+}
+ctx.putImageData(imageData,0,0);
+var enhanced=ctx.getImageData(0,0,canvas.width,canvas.height);
+var edata=enhanced.data;
+var contrast=1.8;
+var factor=259*(contrast+255)/(255*(259-contrast));
+for(var i=0;i<edata.length;i+=4){
+edata[i]=Math.max(0,Math.min(255,factor*(edata[i]-128)+128));
+edata[i+1]=Math.max(0,Math.min(255,factor*(edata[i+1]-128)+128));
+edata[i+2]=Math.max(0,Math.min(255,factor*(edata[i+2]-128)+128));
+}
+ctx.putImageData(enhanced,0,0);
+callback(canvas.toDataURL('image/png'));
+}else{
+callback(imgDataUrl);
+}
+}catch(e){
+callback(imgDataUrl);
+}
+};
+img.onerror=function(){callback(imgDataUrl);};
+img.src=imgDataUrl;
+}
+
+function runOcr(imgDataUrl){
+preprocessImage(imgDataUrl,function(processedImg){
+Tesseract.recognize(processedImg,'chi_sim+eng',{
+logger:function(m){
+var lt=document.querySelector('.ocr-loading-text');
+if(lt&&m.status){
+var map={'recognizing text':'正在识别文字...','loading tesseract core':'加载引擎中...','initializing tesseract':'初始化中...','loading language traineddata':'加载语言数据...','initializing api':'准备识别...'};
+lt.textContent=map[m.status]||m.status;
+}
+}
+}).then(function(result){
+parseBillResult(result);
+}).catch(function(){
+Tesseract.recognize(imgDataUrl,'chi_sim+eng',{logger:function(){}}).then(function(result){
+parseBillResult(result);
+}).catch(function(){
+document.getElementById('ocrArea').innerHTML='<div id="ocrPlaceholder"><span class="ocr-icon">📷</span><span class="ocr-hint">识别失败，请重新上传或手动填写</span></div>';
+document.getElementById('ocrArea').classList.remove('has-img');
+document.getElementById('ocrArea').onclick=function(){document.getElementById('billImageInput').click();};
+});
+});
+});
+}
+
+function extractAmountFromText(s){
+var candidates=s.match(/[-−–]?\s*\d[\d,]*[.]?\d*/g)||[];
+var best=null,bestScore=-1;
+candidates.forEach(function(c){
+var cleaned=c.replace(/[-−–\s,]/g,'');
+if(!cleaned)return;
+var hasDot=c.indexOf('.')>=0||c.indexOf('．')>=0;
+var parts=cleaned.split('.');
+var intPart=parts[0];
+var decPart=parts.length>1?parts[1]:'';
+if(!hasDot&&intPart.length>8)return;
+if(hasDot&&intPart.length>7)return;
+var n=parseFloat(cleaned);
+if(isNaN(n)||n<=0||n>9999999)return;
+var score=0;
+if(hasDot&&decPart.length===2)score+=10;
+else if(hasDot&&decPart.length>0)score+=5;
+else if(intPart.length<=6)score+=3;
+else score+=1;
+if(score>bestScore){bestScore=score;best=cleaned;}
+});
+return best;
+}
+
+function parseBillResult(result){
+var text=(result&&result.data&&result.data.text)||'';
+var lines=(result&&result.data&&result.data.lines)||[];
+var words=(result&&result.data&&result.data.words)||[];
+var resultObj={amount:'',date:'',type:''};
+
+var maxLine=null,maxLineHeight=0;
+lines.forEach(function(line){
+if(line.bbox&&line.text){
+var h=line.bbox.y1-line.bbox.y0;
+if(h>maxLineHeight&&/[\d]/.test(line.text)){maxLineHeight=h;maxLine=line;}
+}
+});
+if(maxLine&&maxLine.text){
+var amt=extractAmountFromText(maxLine.text);
+if(amt)resultObj.amount=amt;
+}
+
+if(!resultObj.amount){
+var numWords=words.filter(function(w){return w.bbox&&/[\d]/.test(w.text);});
+numWords.sort(function(a,b){return(b.bbox.y1-b.bbox.y0)-(a.bbox.y1-a.bbox.y0);});
+if(numWords.length>0){
+var topH=numWords[0].bbox.y1-numWords[0].bbox.y0;
+var bigWords=numWords.filter(function(w){return(w.bbox.y1-w.bbox.y0)>topH*0.7;});
+var combined='';
+bigWords.forEach(function(w){combined+=w.text;});
+var cm=extractAmountFromText(combined);
+if(cm)resultObj.amount=cm;
+else{
+var singleM=extractAmountFromText(numWords[0].text);
+if(singleM)resultObj.amount=singleM;
+}
+}
+}
+
+if(!resultObj.amount){
+var fallback=extractAmountFromText(text);
+if(fallback)resultObj.amount=fallback;
+}
+
+var timeKwMatch=text.match(/(?:支付时间|交易时间|时间|日期|创建时间)\s*[:：]?\s*(\d{4})\s*[-年\/]\s*(\d{1,2})\s*[-月\/]\s*(\d{1,2})/);
+if(timeKwMatch){
+resultObj.date=timeKwMatch[1]+'-'+pad(parseInt(timeKwMatch[2]))+'-'+pad(parseInt(timeKwMatch[3]));
+}else{
+var dateMatch=text.match(/(\d{4})\s*[-年\/]\s*(\d{1,2})\s*[-月\/]\s*(\d{1,2})\s*日?/);
+if(dateMatch){
+resultObj.date=dateMatch[1]+'-'+pad(parseInt(dateMatch[2]))+'-'+pad(parseInt(dateMatch[3]));
+}else{
+var mdMatch=text.match(/(\d{1,2})\s*月\s*(\d{1,2})\s*日/);
+if(mdMatch){
+var now=new Date();
+resultObj.date=now.getFullYear()+'-'+pad(parseInt(mdMatch[1]))+'-'+pad(parseInt(mdMatch[2]));
+}
+}
+}
+
+var incomeKeywords=['收入','收款','转入','退款','到账','红包','工资','报销','奖金','利息','分红','理财收益','退还','已收','收款成功'];
+var expenseKeywords=['支出','付款','消费','实付','转账','代付','餐饮','购物','缴费','充值','外卖','打车','机票','酒店','支付成功','支付完成','一卡通充值','已付'];
+var incomeScore=0,expenseScore=0;
+incomeKeywords.forEach(function(kw){if(text.indexOf(kw)>=0)incomeScore++;});
+expenseKeywords.forEach(function(kw){if(text.indexOf(kw)>=0)expenseScore++;});
+var hasNegSign=text.match(/[-−–]\s*\d/)||(maxLine&&/[-−–]/.test(maxLine.text));
+if(hasNegSign)expenseScore+=2;
+if(text.indexOf('支付成功')>=0||text.indexOf('支付完成')>=0)expenseScore+=1;
+if(incomeScore>expenseScore){resultObj.type='income';}
+else if(expenseScore>0){resultObj.type='expense';}
+else{resultObj.type='expense';}
+
+applyOcrResult(resultObj);
+}
+
+function applyOcrResult(result){
+var area=document.getElementById('ocrArea');
+var loading=area.querySelector('.ocr-loading');
+if(loading)loading.style.display='none';
+
+var typeText=result.type==='income'?'收入':'支出';
+var typeClass=result.type==='income'?'income':'expense';
+var html='<div class="ocr-result"><div style="font-size:13px;font-weight:600;margin-bottom:8px;color:var(--c-accent)">识别结果（已自动填入）</div>';
+html+='<div class="or-row"><span class="or-label">类型</span><span class="or-val"><span class="ocr-badge '+typeClass+'">'+typeText+'</span></span></div>';
+if(result.amount){
+html+='<div class="or-row"><span class="or-label">金额</span><span class="or-val">¥'+result.amount+'</span></div>';
+}else{
+html+='<div class="or-row"><span class="or-label">金额</span><span class="or-val" style="color:var(--c-expense)">未识别，请手动填写</span></div>';
+}
+if(result.date){
+html+='<div class="or-row"><span class="or-label">日期</span><span class="or-val">'+result.date+'</span></div>';
+}else{
+html+='<div class="or-row"><span class="or-label">日期</span><span class="or-val" style="color:var(--c-expense)">未识别，默认今天</span></div>';
+}
+html+='<div style="font-size:11px;color:var(--c-text4);margin-top:6px">请核对后修改分类并提交</div></div>';
+document.getElementById('ocrResult').innerHTML=html;
+document.getElementById('ocrResult').style.display='block';
+
+if(result.type){
+document.querySelectorAll('.type-tab').forEach(function(t){
+t.classList.remove('active');
+if(t.dataset.type===result.type)t.classList.add('active');
+});
+currentType=result.type;
+currentCategory='';
+renderCategories();
+}
+if(result.amount){document.getElementById('amount').value=result.amount;}
+if(result.date){document.getElementById('date').value=result.date;}
+}
+
+function exportData(){
+var records=getRecords();
+if(records.length===0){showToast('暂无记录可导出');return;}
+var data={app:'bookkeeping',version:1,exportDate:new Date().toISOString(),recordCount:records.length,records:records};
+var json=JSON.stringify(data,null,2);
+var blob=new Blob([json],{type:'application/json'});
+var url=URL.createObjectURL(blob);
+var a=document.createElement('a');
+var d=new Date();
+var fname='记账备份_'+d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate())+'_'+pad(d.getHours())+pad(d.getMinutes())+'.json';
+a.href=url;
+a.download=fname;
+document.body.appendChild(a);
+a.click();
+document.body.removeChild(a);
+setTimeout(function(){URL.revokeObjectURL(url);},1000);
+showToast('已导出 '+records.length+' 条记录');
+}
+
+var pendingImportData=null;
+
+function handleImportFile(input){
+var file=input.files[0];
+if(!file)return;
+var reader=new FileReader();
+reader.onload=function(e){
+try{
+var parsed=JSON.parse(e.target.result);
+if(!parsed.records||!Array.isArray(parsed.records)){showToast('文件格式不正确');input.value='';return;}
+var validRecords=parsed.records.filter(function(r){
+return r&&typeof r.amount==='number'&&r.type&&r.category&&r.date;
+});
+if(validRecords.length===0){showToast('文件中没有有效记录');input.value='';return;}
+pendingImportData=validRecords;
+var currentCount=getRecords().length;
+var infoText='即将导入 <b>'+validRecords.length+'</b> 条记录';
+if(currentCount>0){
+infoText+='，将<b>覆盖</b>当前已有的 <b>'+currentCount+'</b> 条记录';
+}else{
+infoText+='，当前无已有记录';
+}
+infoText+='<br><br>此操作<b>不可撤销</b>，建议先导出备份';
+document.getElementById('modalText').innerHTML=infoText;
+document.getElementById('confirmModal').classList.add('show');
+}catch(err){
+showToast('读取失败：'+err.message);
+}
+input.value='';
+};
+reader.readAsText(file);
+}
+
+function closeModal(){
+document.getElementById('confirmModal').classList.remove('show');
+pendingImportData=null;
+}
+
+document.getElementById('modalConfirmBtn').onclick=function(){
+if(!pendingImportData)return;
+saveRecords(pendingImportData);
+closeModal();
+exitEditMode();
+document.getElementById('amount').value='';
+document.getElementById('note').value='';
+document.getElementById('date').value=getTodayStr();
+currentType='expense';
+currentCategory='';
+document.querySelectorAll('.type-tab').forEach(function(t){t.classList.remove('active');if(t.dataset.type==='expense')t.classList.add('active');});
+renderCategories();
+var items=document.querySelectorAll('.cat-item');
+for(var i=0;i<items.length;i++){items[i].classList.remove('selected');}
+resetOcrArea();
+updateSummary();
+renderRecordList();
+renderYearStats();
+renderStats();
+showToast('已恢复 '+pendingImportData.length+' 条记录');
+};
+
+document.getElementById('date').value=getTodayStr();
+renderCategories();
+updateSummary();
+renderRecordList();
+renderYearStats();
+renderStats();
+</script>
+</body>
+</html>
