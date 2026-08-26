@@ -263,7 +263,8 @@ body[data-theme="white"] .ocr-badge,body[data-theme="dark"] .ocr-badge{border-ra
 .ocr-badge.income{background:var(--c-income-bg);color:var(--c-income)}
 .toast{position:fixed;top:58%;left:50%;transform:translate(-50%,-50%);color:#fff;padding:11px 26px;border-radius:14px;font-size:14px;font-weight:600;z-index:9999;opacity:0;transition:all .3s;pointer-events:none;white-space:nowrap}
 body[data-theme="pink"] .toast,body[data-theme="blue"] .toast{background:var(--c-accent);box-shadow:0 6px 20px rgba(var(--rgb-s2),.3)}
-body[data-theme="white"] .toast,body[data-theme="dark"] .toast{background:var(--c-text);border-radius:var(--c-radius-sm);font-size:13px;font-weight:500}
+body[data-theme="white"] .toast{background:var(--c-text);border-radius:var(--c-radius-sm);font-size:13px;font-weight:500}
+body[data-theme="dark"] .toast{background:#3A3A3C;border-radius:var(--c-radius-sm);font-size:13px;font-weight:500}
 .toast.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
 .ocr-cancel{position:absolute;top:8px;right:8px;color:#fff;border:none;border-radius:50%;width:28px;height:28px;font-size:14px;cursor:pointer;z-index:5;line-height:28px;text-align:center;transition:background .2s}
 body[data-theme="pink"] .ocr-cancel,body[data-theme="blue"] .ocr-cancel{background:rgba(var(--rgb-s2),.7)}
@@ -320,13 +321,13 @@ body[data-theme="white"] .modal-cancel,body[data-theme="dark"] .modal-cancel{bor
 <span class="theme-dot" style="background-color:#E63976;"></span>粉色波点
 </div>
 <div class="theme-option" data-theme="blue" onclick="setTheme('blue')">
-<span class="theme-dot" style="background-color:#42A5F5;"></span>Baby蓝波点
+<span class="theme-dot" style="background-color:#42A5F5;"></span>蓝色波点
 </div>
 <div class="theme-option" data-theme="white" onclick="setTheme('white')">
-<span class="theme-dot" style="background-color:#1A1A1A;"></span>白色简约
+<span class="theme-dot" style="background-color:#C4C4C4;"></span>浅色模式
 </div>
 <div class="theme-option" data-theme="dark" onclick="setTheme('dark')">
-<span class="theme-dot" style="background-color:#0A84FF;"></span>深色模式
+<span class="theme-dot" style="background-color:#1A1A1A;"></span>深色模式
 </div>
 </div>
 </div>
@@ -474,7 +475,7 @@ var viewMonth = new Date().getMonth();
 var viewYear = new Date().getFullYear();
 var editingId = null;
 
-var themeNames={pink:'粉色波点',blue:'Baby蓝波点',white:'白色简约',dark:'深色模式'};
+var themeNames={pink:'粉色波点',blue:'蓝色波点',white:'浅色模式',dark:'深色模式'};
 function getTheme(){return localStorage.getItem(THEME_KEY)||'pink';}
 function setTheme(t){
 localStorage.setItem(THEME_KEY,t);
