@@ -1003,10 +1003,10 @@ cleanedText=cleanedText.replace(/\d+\.?\d*\s*[万亿]/g,' ');
 // Remove time patterns without colons (e.g., "1134" from "11:34")
 cleanedText=cleanedText.replace(/(^|[^\d.])([01]?\d|2[0-3])[0-5]\d(?=$|[^\d.])/g,'$1 ');
 // Strategy 1: negative sign + decimal (expense pattern -100.00, highest priority)
-var negMatches=cleanedText.match(/[-−–]\s*\d[\d,]*\.\d{1,2}/g);
+var negMatches=cleanedText.match(/[-−–—―ー]\s*\d[\d,]*[.．]\d{1,2}/g);
 if(negMatches){
 for(var i=0;i<negMatches.length;i++){
-var val=negMatches[i].replace(/[-−–\s,]/g,'');
+var val=negMatches[i].replace(/[-−–—―ー\s,.．]/g,'');
 if(val&&parseFloat(val)>0)return val;
 }
 }
@@ -1063,9 +1063,9 @@ var amountLines=lines.filter(function(line){return line.text&&!isOrderNumberLine
 var negLineCandidates=[];
 amountLines.forEach(function(line){
 if(line.text&&line.bbox){
-var negMatch=line.text.match(/[-−–]\s*\d[\d,]*\.\d{1,2}/);
+var negMatch=line.text.match(/[-−–—―ー]\s*\d[\d,]*[.．]\d{1,2}/);
 if(negMatch){
-var val=negMatch[0].replace(/[-−–\s,]/g,'');
+var val=negMatch[0].replace(/[-−–—―ー\s,.]/g,'');
 if(val&&parseFloat(val)>0){
 negLineCandidates.push({val:val,height:line.bbox.y1-line.bbox.y0});
 }
@@ -1078,6 +1078,7 @@ resultObj.amount=negLineCandidates[0].val;
 }
 
 // Strategy 1: Lines in upper 40% with digits, sorted by height (tallest first)
+if(!resultObj.amount){
 var upperLines=amountLines.filter(function(line){
 if(!line.bbox||!line.text)return false;
 var midY=(line.bbox.y0+line.bbox.y1)/2;
@@ -1086,6 +1087,7 @@ return midY<imgHeight*0.4&&/[\d]/.test(line.text);
 for(var i=0;i<upperLines.length;i++){
 var amt=extractAmountFromText(upperLines[i].text);
 if(amt){resultObj.amount=amt;break;}
+}
 }
 
 // Strategy 2: Lines containing ¥ symbol (any position)
