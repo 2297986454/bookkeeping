@@ -877,12 +877,11 @@ data[i+2]=255-data[i+2];
 ctx.putImageData(imageData,0,0);
 var enhanced=ctx.getImageData(0,0,canvas.width,canvas.height);
 var edata=enhanced.data;
-var contrast=2.2;
+var contrast=1.8;
 var factor=259*(contrast+255)/(255*(259-contrast));
 for(var i=0;i<edata.length;i+=4){
 var gray=edata[i]*0.299+edata[i+1]*0.587+edata[i+2]*0.114;
 gray=Math.max(0,Math.min(255,factor*(gray-128)+128));
-if(gray>150)gray=255;else if(gray<100)gray=0;
 edata[i]=gray;edata[i+1]=gray;edata[i+2]=gray;
 }
 ctx.putImageData(enhanced,0,0);
@@ -959,10 +958,6 @@ if(h>cropMaxH&&/[\d]/.test(line.text)){cropMaxH=h;cropMaxLine=line;}
 }
 });
 if(cropMaxLine)amt=extractAmountFromText(cropMaxLine.text);
-if(!amt){
-var yenMatch=cropText.match(/¥\s*[-−–]?\s*(\d[\d,]*\.?\d{0,2})/);
-if(yenMatch)amt=yenMatch[0].replace(/[^0-9.]/g,'');
-}
 if(!amt)amt=extractAmountFromText(cropText);
 if(amt&&parseFloat(amt)>0){
 document.getElementById('amount').value=amt;
@@ -992,19 +987,21 @@ var cleanedText=s.replace(/\d{1,2}:\d{2}(:\d{2})?/g,' ');
 cleanedText=cleanedText.replace(/\d{1,3}\s*%/g,' ');
 // Remove long digit strings (transaction/order numbers, 10+ continuous digits)
 cleanedText=cleanedText.replace(/\d{10,}/g,' ');
-// Strategy 1: ¥ symbol followed by amount
-var yenMatch=cleanedText.match(/¥\s*[-−–]?\s*(\d[\d,]*\.?\d{0,2})/);
-if(yenMatch){
-var val=yenMatch[0].replace(/[^0-9.]/g,'');
-if(val&&parseFloat(val)>0)return val;
-}
-// Strategy 2: negative sign + decimal (expense pattern -100.00)
+// Remove time patterns without colons (e.g., "1134" from "11:34")
+cleanedText=cleanedText.replace(/(^|[^\d.])([01]?\d|2[0-3])[0-5]\d(?=$|[^\d.])/g,'$1 ');
+// Strategy 1: negative sign + decimal (expense pattern -100.00, highest priority)
 var negMatches=cleanedText.match(/[-−–]\s*\d[\d,]*\.\d{1,2}/g);
 if(negMatches){
 for(var i=0;i<negMatches.length;i++){
 var val=negMatches[i].replace(/[-−–\s,]/g,'');
 if(val&&parseFloat(val)>0)return val;
 }
+}
+// Strategy 2: ¥ symbol followed by amount
+var yenMatch=cleanedText.match(/¥\s*[-−–]?\s*(\d[\d,]*\.?\d{0,2})/);
+if(yenMatch){
+var val=yenMatch[0].replace(/[^0-9.]/g,'');
+if(val&&parseFloat(val)>0)return val;
 }
 // Strategy 3: general extraction with stricter filtering
 var candidates=cleanedText.match(/[-−–]?\s*\d[\d,]*[.]?\d*/g)||[];
