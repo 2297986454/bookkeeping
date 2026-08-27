@@ -887,17 +887,7 @@ edata[i]=gray;edata[i+1]=gray;edata[i+2]=gray;
 ctx.putImageData(enhanced,0,0);
 callback(canvas.toDataURL('image/png'));
 }else{
-// Light mode: also apply grayscale + contrast enhancement for better OCR
-var enhanced=ctx.getImageData(0,0,canvas.width,canvas.height);
-var edata=enhanced.data;
-var contrast=1.4;
-var factor=259*(contrast+255)/(255*(259-contrast));
-for(var i=0;i<edata.length;i+=4){
-var gray=edata[i]*0.299+edata[i+1]*0.587+edata[i+2]*0.114;
-gray=Math.max(0,Math.min(255,factor*(gray-128)+128));
-edata[i]=gray;edata[i+1]=gray;edata[i+2]=gray;
-}
-ctx.putImageData(enhanced,0,0);
+// Light mode: just return upscaled image, no extra processing
 callback(canvas.toDataURL('image/png'));
 }
 }catch(e){
@@ -917,7 +907,8 @@ if(lt&&m.status){
 var map={'recognizing text':'正在识别文字...','loading tesseract core':'加载引擎中...','initializing tesseract':'初始化中...','loading language traineddata':'加载语言数据...','initializing api':'准备识别...'};
 lt.textContent=map[m.status]||m.status;
 }
-}
+},
+tessedit_pageseg_mode:'6'
 }).then(function(result){
 parseBillResult(result);
 var amtVal=document.getElementById('amount').value;
@@ -925,7 +916,7 @@ if(!amtVal||amtVal.indexOf('.')<0){
 tryFallbackOcr(imgDataUrl);
 }
 }).catch(function(){
-Tesseract.recognize(imgDataUrl,'chi_sim+eng',{logger:function(){}}).then(function(result){
+Tesseract.recognize(imgDataUrl,'chi_sim+eng',{logger:function(){},tessedit_pageseg_mode:'6'}).then(function(result){
 parseBillResult(result);
 var amtVal=document.getElementById('amount').value;
 if(!amtVal||amtVal.indexOf('.')<0){
@@ -957,7 +948,7 @@ loadingEl.style.display='flex';
 var lt=loadingEl.querySelector('.ocr-loading-text');
 if(lt)lt.textContent='正在重新识别金额...';
 }
-Tesseract.recognize(processedCrop,'chi_sim+eng',{logger:function(){}}).then(function(cropResult){
+Tesseract.recognize(processedCrop,'chi_sim+eng',{logger:function(){},tessedit_pageseg_mode:'6'}).then(function(cropResult){
 var cropLines=(cropResult&&cropResult.data&&cropResult.data.lines)||[];
 var cropText=(cropResult&&cropResult.data&&cropResult.data.text)||'';
 var amt='';
@@ -1000,6 +991,8 @@ cleanedText=cleanedText.replace(/\d{1,3}\s*%/g,' ');
 cleanedText=cleanedText.replace(/\d{10,}/g,' ');
 // Remove numbers followed by 万/亿 (social proof like "338万+人喜欢", not amounts)
 cleanedText=cleanedText.replace(/\d+\.?\d*\s*[万亿]/g,' ');
+// Remove numbers followed by Chinese date/time units (08月, 20日, 2026年, 08时, etc.)
+cleanedText=cleanedText.replace(/\d+\.?\d*\s*[年月日时分秒]/g,' ');
 // Remove time patterns without colons (e.g., "1134" from "11:34")
 cleanedText=cleanedText.replace(/(^|[^\d.])([01]?\d|2[0-3])[0-5]\d(?=$|[^\d.])/g,'$1 ');
 // Strategy 1: negative sign + decimal (expense pattern -100.00, highest priority)
