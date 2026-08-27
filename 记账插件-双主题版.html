@@ -887,6 +887,17 @@ edata[i]=gray;edata[i+1]=gray;edata[i+2]=gray;
 ctx.putImageData(enhanced,0,0);
 callback(canvas.toDataURL('image/png'));
 }else{
+// Light mode: also apply grayscale + contrast enhancement for better OCR
+var enhanced=ctx.getImageData(0,0,canvas.width,canvas.height);
+var edata=enhanced.data;
+var contrast=1.4;
+var factor=259*(contrast+255)/(255*(259-contrast));
+for(var i=0;i<edata.length;i+=4){
+var gray=edata[i]*0.299+edata[i+1]*0.587+edata[i+2]*0.114;
+gray=Math.max(0,Math.min(255,factor*(gray-128)+128));
+edata[i]=gray;edata[i+1]=gray;edata[i+2]=gray;
+}
+ctx.putImageData(enhanced,0,0);
 callback(canvas.toDataURL('image/png'));
 }
 }catch(e){
@@ -934,7 +945,7 @@ var img=new Image();
 img.onload=function(){
 var canvas=document.createElement('canvas');
 canvas.width=img.width;
-canvas.height=Math.round(img.height*0.4);
+canvas.height=Math.round(img.height*0.65);
 var skipTop=Math.round(img.height*0.05);
 var ctx=canvas.getContext('2d');
 ctx.drawImage(img,0,skipTop,canvas.width,canvas.height-skipTop,0,0,canvas.width,canvas.height-skipTop);
