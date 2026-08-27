@@ -910,14 +910,14 @@ lt.textContent=map[m.status]||m.status;
 }).then(function(result){
 parseBillResult(result);
 var amtVal=document.getElementById('amount').value;
-if(!amtVal||(amtVal.indexOf('.')<0&&parseFloat(amtVal)>999)){
+if(!amtVal||amtVal.indexOf('.')<0){
 tryFallbackOcr(imgDataUrl);
 }
 }).catch(function(){
 Tesseract.recognize(imgDataUrl,'chi_sim+eng',{logger:function(){}}).then(function(result){
 parseBillResult(result);
 var amtVal=document.getElementById('amount').value;
-if(!amtVal||(amtVal.indexOf('.')<0&&parseFloat(amtVal)>999)){
+if(!amtVal||amtVal.indexOf('.')<0){
 tryFallbackOcr(imgDataUrl);
 }
 }).catch(function(){
@@ -987,6 +987,8 @@ var cleanedText=s.replace(/\d{1,2}:\d{2}(:\d{2})?/g,' ');
 cleanedText=cleanedText.replace(/\d{1,3}\s*%/g,' ');
 // Remove long digit strings (transaction/order numbers, 10+ continuous digits)
 cleanedText=cleanedText.replace(/\d{10,}/g,' ');
+// Remove numbers followed by 万/亿 (social proof like "338万+人喜欢", not amounts)
+cleanedText=cleanedText.replace(/\d+\.?\d*\s*[万亿]/g,' ');
 // Remove time patterns without colons (e.g., "1134" from "11:34")
 cleanedText=cleanedText.replace(/(^|[^\d.])([01]?\d|2[0-3])[0-5]\d(?=$|[^\d.])/g,'$1 ');
 // Strategy 1: negative sign + decimal (expense pattern -100.00, highest priority)
