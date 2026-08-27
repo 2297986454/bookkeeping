@@ -853,9 +853,11 @@ img.onload=function(){
 var canvas=document.createElement('canvas');
 var maxW=1600;
 var scale=img.width>maxW?maxW/img.width:1;
+if(img.width<800)scale=800/img.width;
 canvas.width=Math.round(img.width*scale);
 canvas.height=Math.round(img.height*scale);
 var ctx=canvas.getContext('2d');
+ctx.imageSmoothingEnabled=true;
 ctx.drawImage(img,0,0,canvas.width,canvas.height);
 try{
 var imageData=ctx.getImageData(0,0,canvas.width,canvas.height);
@@ -875,17 +877,18 @@ data[i+2]=255-data[i+2];
 ctx.putImageData(imageData,0,0);
 var enhanced=ctx.getImageData(0,0,canvas.width,canvas.height);
 var edata=enhanced.data;
-var contrast=1.8;
+var contrast=2.2;
 var factor=259*(contrast+255)/(255*(259-contrast));
 for(var i=0;i<edata.length;i+=4){
-edata[i]=Math.max(0,Math.min(255,factor*(edata[i]-128)+128));
-edata[i+1]=Math.max(0,Math.min(255,factor*(edata[i+1]-128)+128));
-edata[i+2]=Math.max(0,Math.min(255,factor*(edata[i+2]-128)+128));
+var gray=edata[i]*0.299+edata[i+1]*0.587+edata[i+2]*0.114;
+gray=Math.max(0,Math.min(255,factor*(gray-128)+128));
+if(gray>150)gray=255;else if(gray<100)gray=0;
+edata[i]=gray;edata[i+1]=gray;edata[i+2]=gray;
 }
 ctx.putImageData(enhanced,0,0);
 callback(canvas.toDataURL('image/png'));
 }else{
-callback(imgDataUrl);
+callback(canvas.toDataURL('image/png'));
 }
 }catch(e){
 callback(imgDataUrl);
