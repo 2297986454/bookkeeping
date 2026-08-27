@@ -906,9 +906,17 @@ lt.textContent=map[m.status]||m.status;
 }
 }).then(function(result){
 parseBillResult(result);
+var amtVal=document.getElementById('amount').value;
+if(!amtVal||(amtVal.indexOf('.')<0&&parseFloat(amtVal)>999)){
+tryFallbackOcr(imgDataUrl);
+}
 }).catch(function(){
 Tesseract.recognize(imgDataUrl,'chi_sim+eng',{logger:function(){}}).then(function(result){
 parseBillResult(result);
+var amtVal=document.getElementById('amount').value;
+if(!amtVal||(amtVal.indexOf('.')<0&&parseFloat(amtVal)>999)){
+tryFallbackOcr(imgDataUrl);
+}
 }).catch(function(){
 document.getElementById('ocrArea').innerHTML='<div id="ocrPlaceholder"><span class="ocr-icon">📷</span><span class="ocr-hint">识别失败，请重新上传或手动填写</span></div>';
 document.getElementById('ocrArea').classList.remove('has-img');
@@ -918,8 +926,79 @@ document.getElementById('ocrArea').onclick=function(){document.getElementById('b
 });
 }
 
+function tryFallbackOcr(imgDataUrl){
+var img=new Image();
+img.onload=function(){
+var canvas=document.createElement('canvas');
+canvas.width=img.width;
+canvas.height=Math.round(img.height*0.4);
+var ctx=canvas.getContext('2d');
+ctx.drawImage(img,0,0,canvas.width,canvas.height,0,0,canvas.width,canvas.height);
+var croppedUrl=canvas.toDataURL('image/png');
+preprocessImage(croppedUrl,function(processedCrop){
+var loadingEl=document.querySelector('.ocr-loading');
+if(loadingEl){
+loadingEl.style.display='flex';
+var lt=loadingEl.querySelector('.ocr-loading-text');
+if(lt)lt.textContent='正在重新识别金额...';
+}
+Tesseract.recognize(processedCrop,'chi_sim+eng',{logger:function(){}}).then(function(cropResult){
+var cropLines=(cropResult&&cropResult.data&&cropResult.data.lines)||[];
+var cropText=(cropResult&&cropResult.data&&cropResult.data.text)||'';
+var amt='';
+var cropMaxLine=null,cropMaxH=0;
+cropLines.forEach(function(line){
+if(line.bbox&&line.text&&!isOrderNumberLine(line.text)){
+var h=line.bbox.y1-line.bbox.y0;
+if(h>cropMaxH&&/[\d]/.test(line.text)){cropMaxH=h;cropMaxLine=line;}
+}
+});
+if(cropMaxLine)amt=extractAmountFromText(cropMaxLine.text);
+if(!amt){
+var yenMatch=cropText.match(/¥\s*[-−–]?\s*(\d[\d,]*\.?\d{0,2})/);
+if(yenMatch)amt=yenMatch[0].replace(/[^0-9.]/g,'');
+}
+if(!amt)amt=extractAmountFromText(cropText);
+if(amt&&parseFloat(amt)>0){
+document.getElementById('amount').value=amt;
+var amtRow=document.querySelector('.ocr-result .or-val');
+var allRows=document.querySelectorAll('.ocr-result .or-row');
+allRows.forEach(function(row){
+if(row.querySelector('.or-label')&&row.querySelector('.or-label').textContent.indexOf('金额')>=0){
+var valEl=row.querySelector('.or-val');
+if(valEl){valEl.textContent='¥'+amt;valEl.style.color='';}
+}
+});
+}
+if(loadingEl)loadingEl.style.display='none';
+}).catch(function(){
+if(loadingEl)loadingEl.style.display='none';
+});
+});
+};
+img.onerror=function(){};
+img.src=imgDataUrl;
+}
+
 function extractAmountFromText(s){
-var candidates=s.match(/[-−–]?\s*\d[\d,]*[.]?\d*/g)||[];
+// Remove long digit strings (transaction/order numbers, 10+ continuous digits)
+var cleanedText=s.replace(/\d{10,}/g,' ');
+// Strategy 1: ¥ symbol followed by amount
+var yenMatch=cleanedText.match(/¥\s*[-−–]?\s*(\d[\d,]*\.?\d{0,2})/);
+if(yenMatch){
+var val=yenMatch[0].replace(/[^0-9.]/g,'');
+if(val&&parseFloat(val)>0)return val;
+}
+// Strategy 2: negative sign + decimal (expense pattern -100.00)
+var negMatches=cleanedText.match(/[-−–]\s*\d[\d,]*\.\d{1,2}/g);
+if(negMatches){
+for(var i=0;i<negMatches.length;i++){
+var val=negMatches[i].replace(/[-−–\s,]/g,'');
+if(val&&parseFloat(val)>0)return val;
+}
+}
+// Strategy 3: general extraction with stricter filtering
+var candidates=cleanedText.match(/[-−–]?\s*\d[\d,]*[.]?\d*/g)||[];
 var best=null,bestScore=-1;
 candidates.forEach(function(c){
 var cleaned=c.replace(/[-−–\s,]/g,'');
@@ -928,7 +1007,7 @@ var hasDot=c.indexOf('.')>=0||c.indexOf('．')>=0;
 var parts=cleaned.split('.');
 var intPart=parts[0];
 var decPart=parts.length>1?parts[1]:'';
-if(!hasDot&&intPart.length>8)return;
+if(!hasDot&&intPart.length>6)return;
 if(hasDot&&intPart.length>7)return;
 var n=parseFloat(cleaned);
 if(isNaN(n)||n<=0||n>9999999)return;
@@ -942,14 +1021,49 @@ if(score>bestScore){bestScore=score;best=cleaned;}
 return best;
 }
 
+function isOrderNumberLine(text){
+return /交易单号|商户单号|订单号|流水号|交易号|单号|编号|凭证号/.test(text);
+}
+
 function parseBillResult(result){
 var text=(result&&result.data&&result.data.text)||'';
 var lines=(result&&result.data&&result.data.lines)||[];
 var words=(result&&result.data&&result.data.words)||[];
 var resultObj={amount:'',date:'',type:''};
 
+// Calculate image height from line bbox data
+var imgHeight=0;
+lines.forEach(function(line){if(line.bbox&&line.bbox.y1>imgHeight)imgHeight=line.bbox.y1;});
+if(imgHeight===0)imgHeight=1000;
+
+// Filter out lines that are transaction/order numbers
+var amountLines=lines.filter(function(line){return line.text&&!isOrderNumberLine(line.text);});
+
+// Strategy 1: Lines in upper 40% with digits, sorted by height (tallest first)
+var upperLines=amountLines.filter(function(line){
+if(!line.bbox||!line.text)return false;
+var midY=(line.bbox.y0+line.bbox.y1)/2;
+return midY<imgHeight*0.4&&/[\d]/.test(line.text);
+}).sort(function(a,b){return(b.bbox.y1-b.bbox.y0)-(a.bbox.y1-a.bbox.y0);});
+for(var i=0;i<upperLines.length;i++){
+var amt=extractAmountFromText(upperLines[i].text);
+if(amt){resultObj.amount=amt;break;}
+}
+
+// Strategy 2: Lines containing ¥ symbol (any position)
+if(!resultObj.amount){
+for(var i=0;i<amountLines.length;i++){
+if(amountLines[i].text&&amountLines[i].text.indexOf('¥')>=0){
+var amt=extractAmountFromText(amountLines[i].text);
+if(amt){resultObj.amount=amt;break;}
+}
+}
+}
+
+// Strategy 3: Tallest line with digits (excluding order number lines)
+if(!resultObj.amount){
 var maxLine=null,maxLineHeight=0;
-lines.forEach(function(line){
+amountLines.forEach(function(line){
 if(line.bbox&&line.text){
 var h=line.bbox.y1-line.bbox.y0;
 if(h>maxLineHeight&&/[\d]/.test(line.text)){maxLineHeight=h;maxLine=line;}
@@ -959,9 +1073,15 @@ if(maxLine&&maxLine.text){
 var amt=extractAmountFromText(maxLine.text);
 if(amt)resultObj.amount=amt;
 }
+}
 
+// Strategy 4: Largest words with digits (excluding long digit strings and order number words)
 if(!resultObj.amount){
-var numWords=words.filter(function(w){return w.bbox&&/[\d]/.test(w.text);});
+var numWords=words.filter(function(w){
+if(!w.bbox||!/[\d]/.test(w.text))return false;
+var digits=w.text.replace(/[^0-9]/g,'');
+return digits.length<=8;
+});
 numWords.sort(function(a,b){return(b.bbox.y1-b.bbox.y0)-(a.bbox.y1-a.bbox.y0);});
 if(numWords.length>0){
 var topH=numWords[0].bbox.y1-numWords[0].bbox.y0;
@@ -977,11 +1097,13 @@ if(singleM)resultObj.amount=singleM;
 }
 }
 
+// Strategy 5: Full text fallback
 if(!resultObj.amount){
 var fallback=extractAmountFromText(text);
 if(fallback)resultObj.amount=fallback;
 }
 
+// Date extraction
 var timeKwMatch=text.match(/(?:支付时间|交易时间|时间|日期|创建时间)\s*[:：]?\s*(\d{4})\s*[-年\/]\s*(\d{1,2})\s*[-月\/]\s*(\d{1,2})/);
 if(timeKwMatch){
 resultObj.date=timeKwMatch[1]+'-'+pad(parseInt(timeKwMatch[2]))+'-'+pad(parseInt(timeKwMatch[3]));
@@ -998,12 +1120,14 @@ resultObj.date=now.getFullYear()+'-'+pad(parseInt(mdMatch[1]))+'-'+pad(parseInt(
 }
 }
 
+// Type detection
 var incomeKeywords=['收入','收款','转入','退款','到账','红包','工资','报销','奖金','利息','分红','理财收益','退还','已收','收款成功'];
 var expenseKeywords=['支出','付款','消费','实付','转账','代付','餐饮','购物','缴费','充值','外卖','打车','机票','酒店','支付成功','支付完成','一卡通充值','已付'];
 var incomeScore=0,expenseScore=0;
 incomeKeywords.forEach(function(kw){if(text.indexOf(kw)>=0)incomeScore++;});
 expenseKeywords.forEach(function(kw){if(text.indexOf(kw)>=0)expenseScore++;});
-var hasNegSign=text.match(/[-−–]\s*\d/)||(maxLine&&/[-−–]/.test(maxLine.text));
+var hasNegSign=text.match(/[-−–]\s*\d/)||/\bdetails\b/i.test(text+'');
+if(resultObj.amount&&text.indexOf('-'+resultObj.amount)>=0)expenseScore+=2;
 if(hasNegSign)expenseScore+=2;
 if(text.indexOf('支付成功')>=0||text.indexOf('支付完成')>=0)expenseScore+=1;
 if(incomeScore>expenseScore){resultObj.type='income';}
