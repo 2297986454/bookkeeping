@@ -1017,6 +1017,7 @@ if(!hasDot&&intPart.length>6)return;
 if(hasDot&&intPart.length>7)return;
 var n=parseFloat(cleaned);
 if(isNaN(n)||n<=0||n>9999999)return;
+if(!hasDot&&intPart.length===4&&n>=2000&&n<=2099)return;
 var score=0;
 if(hasDot&&decPart.length===2)score+=10;
 else if(hasDot&&decPart.length>0)score+=5;
