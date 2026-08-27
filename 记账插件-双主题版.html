@@ -1048,6 +1048,24 @@ if(imgHeight===0)imgHeight=1000;
 // Filter out lines that are transaction/order numbers
 var amountLines=lines.filter(function(line){return line.text&&!isOrderNumberLine(line.text);});
 
+// Strategy 0: Search ALL lines for -XX.XX pattern (negative sign + decimal), prefer tallest font
+var negLineCandidates=[];
+amountLines.forEach(function(line){
+if(line.text&&line.bbox){
+var negMatch=line.text.match(/[-−–]\s*\d[\d,]*\.\d{1,2}/);
+if(negMatch){
+var val=negMatch[0].replace(/[-−–\s,]/g,'');
+if(val&&parseFloat(val)>0){
+negLineCandidates.push({val:val,height:line.bbox.y1-line.bbox.y0});
+}
+}
+}
+});
+if(negLineCandidates.length>0){
+negLineCandidates.sort(function(a,b){return b.height-a.height;});
+resultObj.amount=negLineCandidates[0].val;
+}
+
 // Strategy 1: Lines in upper 40% with digits, sorted by height (tallest first)
 var upperLines=amountLines.filter(function(line){
 if(!line.bbox||!line.text)return false;
