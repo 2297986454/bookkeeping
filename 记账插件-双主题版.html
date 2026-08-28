@@ -858,26 +858,26 @@ canvas.width=Math.round(img.width*scale);
 canvas.height=Math.round(img.height*scale);
 var ctx=canvas.getContext('2d');
 ctx.imageSmoothingEnabled=true;
+ctx.imageSmoothingQuality='high';
 ctx.drawImage(img,0,0,canvas.width,canvas.height);
 try{
 var imageData=ctx.getImageData(0,0,canvas.width,canvas.height);
 var data=imageData.data;
-var totalBrightness=0;
+var totalGray=0;
 var pixelCount=data.length/4;
 for(var i=0;i<data.length;i+=4){
-totalBrightness+=data[i]*0.299+data[i+1]*0.587+data[i+2]*0.114;
+totalGray+=data[i]*0.299+data[i+1]*0.587+data[i+2]*0.114;
 }
-var avgBrightness=totalBrightness/pixelCount;
-if(avgBrightness<128){
+var avgGray=totalGray/pixelCount;
+if(avgGray<85){
 for(var i=0;i<data.length;i+=4){
-data[i]=255-data[i];
-data[i+1]=255-data[i+1];
-data[i+2]=255-data[i+2];
+var gray=255-(data[i]*0.299+data[i+1]*0.587+data[i+2]*0.114);
+data[i]=gray;data[i+1]=gray;data[i+2]=gray;
 }
 ctx.putImageData(imageData,0,0);
 var enhanced=ctx.getImageData(0,0,canvas.width,canvas.height);
 var edata=enhanced.data;
-var contrast=1.8;
+var contrast=1.5;
 var factor=259*(contrast+255)/(255*(259-contrast));
 for(var i=0;i<edata.length;i+=4){
 var gray=edata[i]*0.299+edata[i+1]*0.587+edata[i+2]*0.114;
@@ -885,11 +885,8 @@ gray=Math.max(0,Math.min(255,factor*(gray-128)+128));
 edata[i]=gray;edata[i+1]=gray;edata[i+2]=gray;
 }
 ctx.putImageData(enhanced,0,0);
-callback(canvas.toDataURL('image/png'));
-}else{
-// Light mode: just return upscaled image, no extra processing
-callback(canvas.toDataURL('image/png'));
 }
+callback(canvas.toDataURL('image/png'));
 }catch(e){
 callback(imgDataUrl);
 }
@@ -900,7 +897,7 @@ img.src=imgDataUrl;
 
 function runOcr(imgDataUrl){
 preprocessImage(imgDataUrl,function(processedImg){
-Tesseract.createWorker('chi_sim+eng',1,{
+Tesseract.createWorker('eng+chi_sim',1,{
 logger:function(m){
 var lt=document.querySelector('.ocr-loading-text');
 if(lt&&m.status){
@@ -916,7 +913,7 @@ worker.terminate();
 parseBillResult(result);
 var amtVal=document.getElementById('amount').value;
 if(!amtVal||amtVal.indexOf('.')<0){
-tryCenterCropOcr(imgDataUrl);
+trySmartCropOcr(imgDataUrl);
 }
 });
 }).catch(function(){
@@ -927,12 +924,12 @@ document.getElementById('ocrArea').onclick=function(){document.getElementById('b
 });
 }
 
-function tryCenterCropOcr(imgDataUrl){
+function trySmartCropOcr(imgDataUrl){
 var img=new Image();
 img.onload=function(){
 var canvas=document.createElement('canvas');
-var cropTop=Math.round(img.height*0.15);
-var cropBottom=Math.round(img.height*0.75);
+var cropTop=Math.round(img.height*0.10);
+var cropBottom=Math.round(img.height*0.85);
 canvas.width=img.width;
 canvas.height=cropBottom-cropTop;
 var ctx=canvas.getContext('2d');
@@ -945,7 +942,7 @@ loadingEl.style.display='flex';
 var lt=loadingEl.querySelector('.ocr-loading-text');
 if(lt)lt.textContent='正在重新识别金额...';
 }
-Tesseract.createWorker('chi_sim+eng',1,{logger:function(){}}).then(function(worker){
+Tesseract.createWorker('eng+chi_sim',1,{logger:function(){}}).then(function(worker){
 return worker.setParameters({tessedit_pageseg_mode:'6'}).then(function(){
 return worker.recognize(processedCrop);
 }).then(function(cropResult){
@@ -953,64 +950,8 @@ worker.terminate();
 parseBillResult(cropResult);
 var amtVal=document.getElementById('amount').value;
 if(!amtVal||amtVal.indexOf('.')<0){
-tryFallbackOcr(imgDataUrl);
-}
-});
-}).catch(function(){
-tryFallbackOcr(imgDataUrl);
-});
-});
-};
-img.onerror=function(){tryFallbackOcr(imgDataUrl);};
-img.src=imgDataUrl;
-}
-
-function tryFallbackOcr(imgDataUrl){
-var img=new Image();
-img.onload=function(){
-var canvas=document.createElement('canvas');
-canvas.width=img.width;
-canvas.height=Math.round(img.height*0.65);
-var skipTop=Math.round(img.height*0.05);
-var ctx=canvas.getContext('2d');
-ctx.drawImage(img,0,skipTop,canvas.width,canvas.height-skipTop,0,0,canvas.width,canvas.height-skipTop);
-var croppedUrl=canvas.toDataURL('image/png');
-preprocessImage(croppedUrl,function(processedCrop){
-var loadingEl=document.querySelector('.ocr-loading');
-if(loadingEl){
-loadingEl.style.display='flex';
-var lt=loadingEl.querySelector('.ocr-loading-text');
-if(lt)lt.textContent='正在重新识别金额...';
-}
-Tesseract.createWorker('chi_sim+eng',1,{logger:function(){}}).then(function(worker){
-return worker.setParameters({tessedit_pageseg_mode:'6'}).then(function(){
-return worker.recognize(processedCrop);
-}).then(function(cropResult){
-worker.terminate();
-var cropLines=(cropResult&&cropResult.data&&cropResult.data.lines)||[];
-var cropText=(cropResult&&cropResult.data&&cropResult.data.text)||'';
-var amt='';
-var cropMaxLine=null,cropMaxH=0;
-cropLines.forEach(function(line){
-if(line.bbox&&line.text&&!isOrderNumberLine(line.text)){
-var h=line.bbox.y1-line.bbox.y0;
-if(h>cropMaxH&&/[\d]/.test(line.text)){cropMaxH=h;cropMaxLine=line;}
-}
-});
-if(cropMaxLine)amt=extractAmountFromText(cropMaxLine.text);
-if(!amt)amt=extractAmountFromText(cropText);
-if(amt&&parseFloat(amt)>0){
-document.getElementById('amount').value=amt;
-var amtRow=document.querySelector('.ocr-result .or-val');
-var allRows=document.querySelectorAll('.ocr-result .or-row');
-allRows.forEach(function(row){
-if(row.querySelector('.or-label')&&row.querySelector('.or-label').textContent.indexOf('金额')>=0){
-var valEl=row.querySelector('.or-val');
-if(valEl){valEl.textContent='¥'+amt;valEl.style.color='';}
-}
-});
-}
 if(loadingEl)loadingEl.style.display='none';
+}
 });
 }).catch(function(){
 if(loadingEl)loadingEl.style.display='none';
@@ -1021,60 +962,78 @@ img.onerror=function(){};
 img.src=imgDataUrl;
 }
 
-function extractAmountFromText(s){
-// Remove time patterns (11:34, 10:21:28, etc.) to avoid misidentifying as amount
-var cleanedText=s.replace(/\d{1,2}:\d{2}(:\d{2})?/g,' ');
-// Remove battery percentage patterns (37%, etc.)
-cleanedText=cleanedText.replace(/\d{1,3}\s*%/g,' ');
-// Remove long digit strings (transaction/order numbers, 10+ continuous digits)
-cleanedText=cleanedText.replace(/\d{10,}/g,' ');
-// Remove numbers followed by 万/亿 (social proof like "338万+人喜欢", not amounts)
-cleanedText=cleanedText.replace(/\d+\.?\d*\s*[万亿]/g,' ');
-// Remove numbers followed by Chinese date/time units (08月, 20日, 2026年, 08时, etc.)
-cleanedText=cleanedText.replace(/\d+\.?\d*\s*[年月日时分秒]/g,' ');
-// Remove time patterns without colons (e.g., "1134" from "11:34")
-cleanedText=cleanedText.replace(/(^|[^\d.])([01]?\d|2[0-3])[0-5]\d(?=$|[^\d.])/g,'$1 ');
-// Strategy 1: negative sign + decimal (expense pattern -100.00, highest priority)
-var negMatches=cleanedText.match(/[-−–—―ー]\s*\d[\d,]*[.．]\d{1,2}/g);
-if(negMatches){
-for(var i=0;i<negMatches.length;i++){
-var val=negMatches[i].replace(/[-−–—―ー\s,.．]/g,'');
-if(val&&parseFloat(val)>0)return val;
-}
-}
-// Strategy 2: ¥ symbol followed by amount
-var yenMatch=cleanedText.match(/¥\s*[-−–]?\s*(\d[\d,]*\.?\d{0,2})/);
-if(yenMatch){
-var val=yenMatch[0].replace(/[^0-9.]/g,'');
-if(val&&parseFloat(val)>0)return val;
-}
-// Strategy 3: general extraction with stricter filtering
-var candidates=cleanedText.match(/[-−–]?\s*\d[\d,]*[.]?\d*/g)||[];
-var best=null,bestScore=-1;
-candidates.forEach(function(c){
-var cleaned=c.replace(/[-−–\s,]/g,'');
-if(!cleaned)return;
-var hasDot=c.indexOf('.')>=0||c.indexOf('．')>=0;
-var parts=cleaned.split('.');
-var intPart=parts[0];
-var decPart=parts.length>1?parts[1]:'';
-if(!hasDot&&intPart.length>6)return;
-if(hasDot&&intPart.length>7)return;
-var n=parseFloat(cleaned);
-if(isNaN(n)||n<=0||n>9999999)return;
-if(!hasDot&&intPart.length===4&&n>=2000&&n<=2099)return;
-var score=0;
-if(hasDot&&decPart.length===2)score+=10;
-else if(hasDot&&decPart.length>0)score+=5;
-else if(intPart.length<=6)score+=3;
-else score+=1;
-if(score>bestScore){bestScore=score;best=cleaned;}
-});
-return best;
-}
-
 function isOrderNumberLine(text){
 return /交易单号|商户单号|订单号|流水号|交易号|单号|编号|凭证号/.test(text);
+}
+
+function deepCleanText(s){
+var t=s;
+t=t.replace(/\d{1,2}:\d{2}(:\d{2})?/g,' ');
+t=t.replace(/\d{1,3}\s*%/g,' ');
+t=t.replace(/\d{10,}/g,' ');
+t=t.replace(/\d+\.?\d*\s*[万亿]/g,' ');
+t=t.replace(/\d+\.?\d*\s*[年月日时分秒]/g,' ');
+t=t.replace(/(^|[^\d.])([01]?\d|2[0-3])[0-5]\d(?=$|[^\d.])/g,'$1 ');
+t=t.replace(/\b20[0-2]\d\b/g,' ');
+t=t.replace(/\b19[8-9]\d\b/g,' ');
+t=t.replace(/\d{8}/g,' ');
+return t;
+}
+
+function scoreAmountCandidate(line,imgHeight,allLines){
+if(!line.text||!line.bbox)return null;
+var rawText=line.text;
+if(isOrderNumberLine(rawText))return null;
+var cleaned=deepCleanText(rawText);
+var negRe=/[‑−–—―ー\-]\s*\d[\d,]*[.．]\d{1,2}/;
+var negMatch=cleaned.match(negRe);
+var yenMatch=cleaned.match(/¥\s*[‑−–—―ー\-]?\s*\d[\d,]*[.．]\d{1,2}/);
+var plainMatch=cleaned.match(/\d[\d,]*[.．]\d{1,2}/);
+var match=null;
+if(negMatch){
+match=negMatch[0];
+}else if(yenMatch){
+match=yenMatch[0];
+}else if(plainMatch){
+match=plainMatch[0];
+}
+if(!match)return null;
+var valStr=match.replace(/[‑−–—―ー\-¥\s,.．]/g,'');
+var val=parseFloat(valStr);
+if(isNaN(val)||val<=0||val>2000)return null;
+var score=0;
+var h=line.bbox.y1-line.bbox.y0;
+var midY=(line.bbox.y0+line.bbox.y1)/2;
+var yRatio=midY/imgHeight;
+if(negMatch){
+score+=60;
+}else{
+var hasNegNearby=false;
+for(var j=0;j<allLines.length;j++){
+var ol=allLines[j];
+if(ol===line||!ol.bbox)continue;
+var olDist=Math.abs((ol.bbox.y0+ol.bbox.y1)/2-midY);
+if(olDist<50&&/[‑−–—―ー\-]/.test(ol.text)){
+hasNegNearby=true;break;
+}
+}
+if(hasNegNearby)score+=30;
+else score-=80;
+}
+if(yRatio>=0.30&&yRatio<=0.65){
+score+=40;
+}else{
+score-=30;
+}
+score+=h*0.3;
+if(yenMatch)score+=50;
+if(/\b20[0-2]\d\b/.test(rawText))score-=100;
+if(/\d{8}/.test(rawText))score-=100;
+if(isOrderNumberLine(rawText))score-=100;
+if(/\d{1,2}:\d{2}/.test(rawText))score-=100;
+if(/\d+\.?\d*\s*[年月日]/.test(rawText))score-=50;
+if(/\d+\.?\d*\s*[万亿]/.test(rawText))score-=50;
+return{val:valStr,score:score,line:line};
 }
 
 function parseBillResult(result){
@@ -1086,100 +1045,59 @@ console.log(text);
 console.log('=== OCR LINES ===');
 lines.forEach(function(l,i){console.log(i+': ['+(l.bbox?(l.bbox.y1-l.bbox.y0):0)+'px] '+l.text);});
 var resultObj={amount:'',date:'',type:''};
-
-// Calculate image height from line bbox data
 var imgHeight=0;
 lines.forEach(function(line){if(line.bbox&&line.bbox.y1>imgHeight)imgHeight=line.bbox.y1;});
 if(imgHeight===0)imgHeight=1000;
-
-// Filter out lines that are transaction/order numbers
-var amountLines=lines.filter(function(line){return line.text&&!isOrderNumberLine(line.text);});
-
-// Strategy 0: Search ALL lines for -XX.XX pattern (negative sign + decimal), prefer tallest font
-var negLineCandidates=[];
-amountLines.forEach(function(line){
-if(line.text&&line.bbox){
-var negMatch=line.text.match(/[-−–—―ー]\s*\d[\d,]*[.．]\d{1,2}/);
-if(negMatch){
-var val=negMatch[0].replace(/[-−–—―ー\s,.]/g,'');
-if(val&&parseFloat(val)>0){
-negLineCandidates.push({val:val,height:line.bbox.y1-line.bbox.y0});
+var candidates=[];
+lines.forEach(function(line){
+var c=scoreAmountCandidate(line,imgHeight,lines);
+if(c)candidates.push(c);
+});
+if(candidates.length>0){
+candidates.sort(function(a,b){return b.score-a.score;});
+resultObj.amount=candidates[0].val;
 }
+if(!resultObj.amount){
+var words2=words||[];
+var wordCandidates=[];
+words2.forEach(function(w){
+if(!w.bbox||!/[\d]/.test(w.text))return;
+var cleaned=deepCleanText(w.text);
+var m=cleaned.match(/[‑−–—―ー\-]?\s*\d[\d,]*[.．]\d{1,2}/);
+if(m){
+var valStr=m[0].replace(/[‑−–—―ー\-¥\s,.．]/g,'');
+var val=parseFloat(valStr);
+if(!isNaN(val)&&val>0&&val<=2000){
+var h=w.bbox.y1-w.bbox.y0;
+var midY=(w.bbox.y0+w.bbox.y1)/2;
+var yRatio=midY/imgHeight;
+var score=h*0.3;
+if(yRatio>=0.30&&yRatio<=0.65)score+=40;
+else score-=30;
+wordCandidates.push({val:valStr,score:score});
 }
 }
 });
-if(negLineCandidates.length>0){
-negLineCandidates.sort(function(a,b){return b.height-a.height;});
-resultObj.amount=negLineCandidates[0].val;
+if(wordCandidates.length>0){
+wordCandidates.sort(function(a,b){return b.score-a.score;});
+resultObj.amount=wordCandidates[0].val;
 }
-
-// Strategy 1: Lines in upper 40% with digits, sorted by height (tallest first)
+}
 if(!resultObj.amount){
-var upperLines=amountLines.filter(function(line){
-if(!line.bbox||!line.text)return false;
-var midY=(line.bbox.y0+line.bbox.y1)/2;
-return midY<imgHeight*0.4&&/[\d]/.test(line.text);
-}).sort(function(a,b){return(b.bbox.y1-b.bbox.y0)-(a.bbox.y1-a.bbox.y0);});
-for(var i=0;i<upperLines.length;i++){
-var amt=extractAmountFromText(upperLines[i].text);
-if(amt){resultObj.amount=amt;break;}
+var fullCleaned=deepCleanText(text);
+var fullMatches=fullCleaned.match(/[‑−–—―ー\-]?\s*\d[\d,]*[.．]\d{1,2}/g);
+if(fullMatches){
+var bestVal=null,bestLen=0;
+for(var i=0;i<fullMatches.length;i++){
+var v=fullMatches[i].replace(/[‑−–—―ー\-¥\s,.．]/g,'');
+var n=parseFloat(v);
+if(!isNaN(n)&&n>0&&n<=2000&&v.length>bestLen){
+bestLen=v.length;bestVal=v;
 }
 }
-
-// Strategy 2: Lines containing ¥ symbol (any position)
-if(!resultObj.amount){
-for(var i=0;i<amountLines.length;i++){
-if(amountLines[i].text&&amountLines[i].text.indexOf('¥')>=0){
-var amt=extractAmountFromText(amountLines[i].text);
-if(amt){resultObj.amount=amt;break;}
+if(bestVal)resultObj.amount=bestVal;
 }
 }
-}
-
-// Strategy 3: Tallest line with digits (excluding order number lines)
-if(!resultObj.amount){
-var maxLine=null,maxLineHeight=0;
-amountLines.forEach(function(line){
-if(line.bbox&&line.text){
-var h=line.bbox.y1-line.bbox.y0;
-if(h>maxLineHeight&&/[\d]/.test(line.text)){maxLineHeight=h;maxLine=line;}
-}
-});
-if(maxLine&&maxLine.text){
-var amt=extractAmountFromText(maxLine.text);
-if(amt)resultObj.amount=amt;
-}
-}
-
-// Strategy 4: Largest words with digits (excluding long digit strings and order number words)
-if(!resultObj.amount){
-var numWords=words.filter(function(w){
-if(!w.bbox||!/[\d]/.test(w.text))return false;
-var digits=w.text.replace(/[^0-9]/g,'');
-return digits.length<=8;
-});
-numWords.sort(function(a,b){return(b.bbox.y1-b.bbox.y0)-(a.bbox.y1-a.bbox.y0);});
-if(numWords.length>0){
-var topH=numWords[0].bbox.y1-numWords[0].bbox.y0;
-var bigWords=numWords.filter(function(w){return(w.bbox.y1-w.bbox.y0)>topH*0.7;});
-var combined='';
-bigWords.forEach(function(w){combined+=w.text;});
-var cm=extractAmountFromText(combined);
-if(cm)resultObj.amount=cm;
-else{
-var singleM=extractAmountFromText(numWords[0].text);
-if(singleM)resultObj.amount=singleM;
-}
-}
-}
-
-// Strategy 5: Full text fallback
-if(!resultObj.amount){
-var fallback=extractAmountFromText(text);
-if(fallback)resultObj.amount=fallback;
-}
-
-// Date extraction
 var timeKwMatch=text.match(/(?:支付时间|交易时间|时间|日期|创建时间)\s*[:：]?\s*(\d{4})\s*[-年\/]\s*(\d{1,2})\s*[-月\/]\s*(\d{1,2})/);
 if(timeKwMatch){
 resultObj.date=timeKwMatch[1]+'-'+pad(parseInt(timeKwMatch[2]))+'-'+pad(parseInt(timeKwMatch[3]));
@@ -1195,21 +1113,17 @@ resultObj.date=now.getFullYear()+'-'+pad(parseInt(mdMatch[1]))+'-'+pad(parseInt(
 }
 }
 }
-
-// Type detection
 var incomeKeywords=['收入','收款','转入','退款','到账','红包','工资','报销','奖金','利息','分红','理财收益','退还','已收','收款成功'];
 var expenseKeywords=['支出','付款','消费','实付','转账','代付','餐饮','购物','缴费','充值','外卖','打车','机票','酒店','支付成功','支付完成','一卡通充值','已付'];
 var incomeScore=0,expenseScore=0;
 incomeKeywords.forEach(function(kw){if(text.indexOf(kw)>=0)incomeScore++;});
 expenseKeywords.forEach(function(kw){if(text.indexOf(kw)>=0)expenseScore++;});
-var hasNegSign=text.match(/[-−–]\s*\d/)||/\bdetails\b/i.test(text+'');
-if(resultObj.amount&&text.indexOf('-'+resultObj.amount)>=0)expenseScore+=2;
+var hasNegSign=text.match(/[‑−–—―ー\-]\s*\d/);
 if(hasNegSign)expenseScore+=2;
 if(text.indexOf('支付成功')>=0||text.indexOf('支付完成')>=0)expenseScore+=1;
 if(incomeScore>expenseScore){resultObj.type='income';}
 else if(expenseScore>0){resultObj.type='expense';}
 else{resultObj.type='expense';}
-
 applyOcrResult(resultObj);
 }
 
