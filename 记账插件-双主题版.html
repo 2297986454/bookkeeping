@@ -900,35 +900,69 @@ img.src=imgDataUrl;
 
 function runOcr(imgDataUrl){
 preprocessImage(imgDataUrl,function(processedImg){
-Tesseract.recognize(processedImg,'chi_sim+eng',{
+Tesseract.createWorker('chi_sim+eng',1,{
 logger:function(m){
 var lt=document.querySelector('.ocr-loading-text');
 if(lt&&m.status){
 var map={'recognizing text':'正在识别文字...','loading tesseract core':'加载引擎中...','initializing tesseract':'初始化中...','loading language traineddata':'加载语言数据...','initializing api':'准备识别...'};
 lt.textContent=map[m.status]||m.status;
 }
-},
-tessedit_pageseg_mode:'6'
+}
+}).then(function(worker){
+return worker.setParameters({tessedit_pageseg_mode:'11'}).then(function(){
+return worker.recognize(processedImg);
 }).then(function(result){
+worker.terminate();
 parseBillResult(result);
 var amtVal=document.getElementById('amount').value;
 if(!amtVal||amtVal.indexOf('.')<0){
-tryFallbackOcr(imgDataUrl);
+tryCenterCropOcr(imgDataUrl);
 }
-}).catch(function(){
-Tesseract.recognize(imgDataUrl,'chi_sim+eng',{logger:function(){},tessedit_pageseg_mode:'6'}).then(function(result){
-parseBillResult(result);
-var amtVal=document.getElementById('amount').value;
-if(!amtVal||amtVal.indexOf('.')<0){
-tryFallbackOcr(imgDataUrl);
-}
+});
 }).catch(function(){
 document.getElementById('ocrArea').innerHTML='<div id="ocrPlaceholder"><span class="ocr-icon">📷</span><span class="ocr-hint">识别失败，请重新上传或手动填写</span></div>';
 document.getElementById('ocrArea').classList.remove('has-img');
 document.getElementById('ocrArea').onclick=function(){document.getElementById('billImageInput').click();};
 });
 });
+}
+
+function tryCenterCropOcr(imgDataUrl){
+var img=new Image();
+img.onload=function(){
+var canvas=document.createElement('canvas');
+var cropTop=Math.round(img.height*0.15);
+var cropBottom=Math.round(img.height*0.75);
+canvas.width=img.width;
+canvas.height=cropBottom-cropTop;
+var ctx=canvas.getContext('2d');
+ctx.drawImage(img,0,cropTop,img.width,cropBottom-cropTop,0,0,img.width,cropBottom-cropTop);
+var croppedUrl=canvas.toDataURL('image/png');
+preprocessImage(croppedUrl,function(processedCrop){
+var loadingEl=document.querySelector('.ocr-loading');
+if(loadingEl){
+loadingEl.style.display='flex';
+var lt=loadingEl.querySelector('.ocr-loading-text');
+if(lt)lt.textContent='正在重新识别金额...';
+}
+Tesseract.createWorker('chi_sim+eng',1,{logger:function(){}}).then(function(worker){
+return worker.setParameters({tessedit_pageseg_mode:'6'}).then(function(){
+return worker.recognize(processedCrop);
+}).then(function(cropResult){
+worker.terminate();
+parseBillResult(cropResult);
+var amtVal=document.getElementById('amount').value;
+if(!amtVal||amtVal.indexOf('.')<0){
+tryFallbackOcr(imgDataUrl);
+}
 });
+}).catch(function(){
+tryFallbackOcr(imgDataUrl);
+});
+});
+};
+img.onerror=function(){tryFallbackOcr(imgDataUrl);};
+img.src=imgDataUrl;
 }
 
 function tryFallbackOcr(imgDataUrl){
@@ -948,7 +982,11 @@ loadingEl.style.display='flex';
 var lt=loadingEl.querySelector('.ocr-loading-text');
 if(lt)lt.textContent='正在重新识别金额...';
 }
-Tesseract.recognize(processedCrop,'chi_sim+eng',{logger:function(){},tessedit_pageseg_mode:'6'}).then(function(cropResult){
+Tesseract.createWorker('chi_sim+eng',1,{logger:function(){}}).then(function(worker){
+return worker.setParameters({tessedit_pageseg_mode:'6'}).then(function(){
+return worker.recognize(processedCrop);
+}).then(function(cropResult){
+worker.terminate();
 var cropLines=(cropResult&&cropResult.data&&cropResult.data.lines)||[];
 var cropText=(cropResult&&cropResult.data&&cropResult.data.text)||'';
 var amt='';
@@ -973,6 +1011,7 @@ if(valEl){valEl.textContent='¥'+amt;valEl.style.color='';}
 });
 }
 if(loadingEl)loadingEl.style.display='none';
+});
 }).catch(function(){
 if(loadingEl)loadingEl.style.display='none';
 });
@@ -1042,6 +1081,10 @@ function parseBillResult(result){
 var text=(result&&result.data&&result.data.text)||'';
 var lines=(result&&result.data&&result.data.lines)||[];
 var words=(result&&result.data&&result.data.words)||[];
+console.log('=== OCR RAW TEXT ===');
+console.log(text);
+console.log('=== OCR LINES ===');
+lines.forEach(function(l,i){console.log(i+': ['+(l.bbox?(l.bbox.y1-l.bbox.y0):0)+'px] '+l.text);});
 var resultObj={amount:'',date:'',type:''};
 
 // Calculate image height from line bbox data
