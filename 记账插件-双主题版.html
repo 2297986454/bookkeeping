@@ -914,6 +914,9 @@ parseBillResult(result);
 var amtVal=document.getElementById('amount').value;
 if(!amtVal||amtVal.indexOf('.')<0){
 trySmartCropOcr(imgDataUrl);
+}else{
+var loadingEl=document.querySelector('.ocr-loading');
+if(loadingEl)loadingEl.style.display='none';
 }
 });
 }).catch(function(){
@@ -947,9 +950,70 @@ return worker.setParameters({tessedit_pageseg_mode:'6'}).then(function(){
 return worker.recognize(processedCrop);
 }).then(function(cropResult){
 worker.terminate();
-parseBillResult(cropResult);
-var amtVal=document.getElementById('amount').value;
-if(!amtVal||amtVal.indexOf('.')<0){
+var prevAmt=document.getElementById('amount').value;
+var cropText=(cropResult&&cropResult.data&&cropResult.data.text)||'';
+var cropLines=(cropResult&&cropResult.data&&cropResult.data.lines)||[];
+var cropImgH=0;
+cropLines.forEach(function(l){if(l.bbox&&l.bbox.y1>cropImgH)cropImgH=l.bbox.y1;});
+if(cropImgH===0)cropImgH=1000;
+var cropCandidates=[];
+cropLines.forEach(function(line){
+var c=scoreAmountCandidate(line,cropImgH,cropLines);
+if(c)cropCandidates.push(c);
+});
+var newAmt='';
+if(cropCandidates.length>0){
+cropCandidates.sort(function(a,b){return b.score-a.score;});
+newAmt=cropCandidates[0].val;
+}
+if(!newAmt){
+var cropWords=(cropResult&&cropResult.data&&cropResult.data.words)||[];
+var wc=[];
+cropWords.forEach(function(w){
+if(!w.bbox||!/[\d]/.test(w.text))return;
+var cl=deepCleanText(w.text);
+var wm=cl.match(/[¥￥]?[‑−–—―ー\-]?\s*\d[\d,]*[.．]\d{1,2}/);
+if(wm){
+var v=wm[0].replace(/[‑−–—―ー\-¥￥\s,.．]/g,'');
+var n=parseFloat(v);
+if(!isNaN(n)&&n>0&&n<=2000){
+var h=w.bbox.y1-w.bbox.y0;
+var midY=(w.bbox.y0+w.bbox.y1)/2;
+var yr=midY/cropImgH;
+var s=h*0.3;
+if(yr>=0.30&&yr<=0.65)s+=40;else s-=30;
+wc.push({val:v,score:s});
+}
+}
+});
+if(wc.length>0){wc.sort(function(a,b){return b.score-a.score;});newAmt=wc[0].val;}
+}
+if(!newAmt){
+var fcl=deepCleanText(cropText);
+var fm=fcl.match(/[¥￥]?[‑−–—―ー\-]?\s*\d[\d,]*[.．]\d{1,2}/g);
+if(fm){
+var bv=null,bl=0;
+for(var i=0;i<fm.length;i++){
+var v=fm[i].replace(/[‑−–—―ー\-¥￥\s,.．]/g,'');
+var n=parseFloat(v);
+if(!isNaN(n)&&n>0&&n<=2000&&v.length>bl){bl=v.length;bv=v;}
+}
+if(bv)newAmt=bv;
+}
+}
+if(newAmt&&newAmt.indexOf('.')>=0){
+document.getElementById('amount').value=newAmt;
+var allRows=document.querySelectorAll('.ocr-result .or-row');
+allRows.forEach(function(row){
+if(row.querySelector('.or-label')&&row.querySelector('.or-label').textContent.indexOf('金额')>=0){
+var valEl=row.querySelector('.or-val');
+if(valEl){valEl.textContent='¥'+newAmt;valEl.style.color='';}
+}
+});
+if(loadingEl)loadingEl.style.display='none';
+}else if(prevAmt&&prevAmt.indexOf('.')>=0){
+if(loadingEl)loadingEl.style.display='none';
+}else{
 if(loadingEl)loadingEl.style.display='none';
 }
 });
@@ -987,10 +1051,28 @@ if(isOrderNumberLine(rawText))return null;
 var cleaned=deepCleanText(rawText);
 var negRe=/[‑−–—―ー\-]\s*\d[\d,]*[.．]\d{1,2}/;
 var negMatch=cleaned.match(negRe);
+if(!negMatch){
+negMatch=cleaned.match(/[‑−–—―ー\-]\s*(\d{2,5})(?=\D|$)/);
+if(negMatch)negMatch[0]=negMatch[0].replace(/(\d{2,5})$/,function(m){return m.length>=3?m.slice(0,-2)+'.'+m.slice(-2):m;});
+}
 var yenRe=/[¥￥]\s*[‑−–—―ー\-]?\s*\d[\d,]*[.．]\d{1,2}/;
 var yenMatch=cleaned.match(yenRe);
 if(!yenMatch)yenMatch=rawText.match(yenRe);
+if(!yenMatch){
+yenMatch=cleaned.match(/[¥￥]\s*[‑−–—―ー\-]?\s*(\d{2,5})(?=\D|$)/);
+if(yenMatch){
+var yenRaw=yenMatch[0];
+yenMatch[0]=yenRaw.replace(/(\d{2,5})$/,function(m){return m.length>=3?m.slice(0,-2)+'.'+m.slice(-2):m;});
+}
+}
 var plainMatch=cleaned.match(/\d[\d,]*[.．]\d{1,2}/);
+if(!plainMatch){
+plainMatch=cleaned.match(/\b(\d{3,5})(?=\D|$)/);
+if(plainMatch){
+var pm=plainMatch[0];
+plainMatch[0]=pm.length>=3?pm.slice(0,-2)+'.'+pm.slice(-2):pm;
+}
+}
 var match=null;
 if(negMatch){
 match=negMatch[0];
@@ -1000,7 +1082,7 @@ match=yenMatch[0];
 match=plainMatch[0];
 }
 if(!match)return null;
-var valStr=match.replace(/[‑−–—―ー\-¥￥\s,.．]/g,'');
+var valStr=match.replace(/[‑−–—―ー\-¥￥\s]/g,'');
 var val=parseFloat(valStr);
 if(isNaN(val)||val<=0||val>2000)return null;
 var score=0;
