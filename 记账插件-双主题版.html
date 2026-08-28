@@ -897,7 +897,7 @@ img.src=imgDataUrl;
 
 function runOcr(imgDataUrl){
 preprocessImage(imgDataUrl,function(processedImg){
-Tesseract.createWorker('eng+chi_sim',1,{
+Tesseract.createWorker('chi_sim+eng',1,{
 logger:function(m){
 var lt=document.querySelector('.ocr-loading-text');
 if(lt&&m.status){
@@ -942,7 +942,7 @@ loadingEl.style.display='flex';
 var lt=loadingEl.querySelector('.ocr-loading-text');
 if(lt)lt.textContent='正在重新识别金额...';
 }
-Tesseract.createWorker('eng+chi_sim',1,{logger:function(){}}).then(function(worker){
+Tesseract.createWorker('chi_sim+eng',1,{logger:function(){}}).then(function(worker){
 return worker.setParameters({tessedit_pageseg_mode:'6'}).then(function(){
 return worker.recognize(processedCrop);
 }).then(function(cropResult){
@@ -987,7 +987,9 @@ if(isOrderNumberLine(rawText))return null;
 var cleaned=deepCleanText(rawText);
 var negRe=/[‑−–—―ー\-]\s*\d[\d,]*[.．]\d{1,2}/;
 var negMatch=cleaned.match(negRe);
-var yenMatch=cleaned.match(/¥\s*[‑−–—―ー\-]?\s*\d[\d,]*[.．]\d{1,2}/);
+var yenRe=/[¥￥]\s*[‑−–—―ー\-]?\s*\d[\d,]*[.．]\d{1,2}/;
+var yenMatch=cleaned.match(yenRe);
+if(!yenMatch)yenMatch=rawText.match(yenRe);
 var plainMatch=cleaned.match(/\d[\d,]*[.．]\d{1,2}/);
 var match=null;
 if(negMatch){
@@ -998,7 +1000,7 @@ match=yenMatch[0];
 match=plainMatch[0];
 }
 if(!match)return null;
-var valStr=match.replace(/[‑−–—―ー\-¥\s,.．]/g,'');
+var valStr=match.replace(/[‑−–—―ー\-¥￥\s,.．]/g,'');
 var val=parseFloat(valStr);
 if(isNaN(val)||val<=0||val>2000)return null;
 var score=0;
@@ -1007,6 +1009,8 @@ var midY=(line.bbox.y0+line.bbox.y1)/2;
 var yRatio=midY/imgHeight;
 if(negMatch){
 score+=60;
+}else if(yenMatch){
+score+=55;
 }else{
 var hasNegNearby=false;
 for(var j=0;j<allLines.length;j++){
@@ -1063,9 +1067,9 @@ var wordCandidates=[];
 words2.forEach(function(w){
 if(!w.bbox||!/[\d]/.test(w.text))return;
 var cleaned=deepCleanText(w.text);
-var m=cleaned.match(/[‑−–—―ー\-]?\s*\d[\d,]*[.．]\d{1,2}/);
+var m=cleaned.match(/[¥￥]?[‑−–—―ー\-]?\s*\d[\d,]*[.．]\d{1,2}/);
 if(m){
-var valStr=m[0].replace(/[‑−–—―ー\-¥\s,.．]/g,'');
+var valStr=m[0].replace(/[‑−–—―ー\-¥￥\s,.．]/g,'');
 var val=parseFloat(valStr);
 if(!isNaN(val)&&val>0&&val<=2000){
 var h=w.bbox.y1-w.bbox.y0;
@@ -1085,11 +1089,11 @@ resultObj.amount=wordCandidates[0].val;
 }
 if(!resultObj.amount){
 var fullCleaned=deepCleanText(text);
-var fullMatches=fullCleaned.match(/[‑−–—―ー\-]?\s*\d[\d,]*[.．]\d{1,2}/g);
+var fullMatches=fullCleaned.match(/[¥￥]?[‑−–—―ー\-]?\s*\d[\d,]*[.．]\d{1,2}/g);
 if(fullMatches){
 var bestVal=null,bestLen=0;
 for(var i=0;i<fullMatches.length;i++){
-var v=fullMatches[i].replace(/[‑−–—―ー\-¥\s,.．]/g,'');
+var v=fullMatches[i].replace(/[‑−–—―ー\-¥￥\s,.．]/g,'');
 var n=parseFloat(v);
 if(!isNaN(n)&&n>0&&n<=2000&&v.length>bestLen){
 bestLen=v.length;bestVal=v;
